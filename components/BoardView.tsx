@@ -861,13 +861,13 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
               <React.Fragment key={i}>
                 <Line 
                   points={[-5000, i * 100 - 2500, 5000, i * 100 - 2500]} 
-                  stroke="rgba(128, 128, 128, 0.15)" 
+                  stroke={theme === 'dark' ? "rgba(229, 231, 235, 0.2)" : "rgba(128, 128, 128, 0.15)"} 
                   strokeWidth={1} 
                   listening={false}
                 />
                 <Line 
                   points={[i * 100 - 2500, -5000, i * 100 - 2500, 5000]} 
-                  stroke="rgba(128, 128, 128, 0.15)" 
+                  stroke={theme === 'dark' ? "rgba(229, 231, 235, 0.2)" : "rgba(128, 128, 128, 0.15)"} 
                   strokeWidth={1} 
                   listening={false}
                 />
