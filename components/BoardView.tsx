@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
-import { Stage, Layer, Line, Arrow, Group, Rect, Text, Transformer, Image as KonvaImage } from 'react-konva';
+import { Stage, Layer, Line, Arrow, Group, Rect, Text, Transformer, Circle, Image as KonvaImage } from 'react-konva';
 import { useBoardStore, PostIt, Connection, DrawingLine } from '@/store/useBoardStore';
 import { v4 as uuidv4 } from 'uuid';
 import Konva from 'konva';
@@ -225,6 +225,7 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
   
   // Selection Rect state
   const [selectionRect, setSelectionRect] = useState({ visible: false, startX: 0, startY: 0, endX: 0, endY: 0 });
+  const [editingConnection, setEditingConnection] = useState<string | null>(null);
 
   const currentPostIts = postIts.filter(p => p.boardId === currentBoardId);
   const currentPostItGroups = useBoardStore(state => state.postItGroups).filter(g => g.boardId === currentBoardId);
@@ -356,6 +357,14 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
       updatePostIt(editingPostIt, { text: editValue });
       setEditingPostIt(null);
       return;
+    }
+
+    if (editingConnection) {
+      // Don't close if we clicked on the control point handle itself
+      const isHandle = e.target instanceof Konva.Circle && e.target.draggable();
+      if (!isHandle) {
+        setEditingConnection(null);
+      }
     }
 
     const stage = e.target.getStage();
@@ -956,9 +965,13 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
             const fromCenter = { x: fromRect.x + fromRect.width / 2, y: fromRect.y + fromRect.height / 2 };
             const toCenter = { x: toRect.x + toRect.width / 2, y: toRect.y + toRect.height / 2 };
             
+            // If control point exists, calculate start/end points towards it
+            const targetForStart = conn.controlPoint || toCenter;
+            const targetForEnd = conn.controlPoint || fromCenter;
+
             // Add padding to ensure arrow tips are visible and not hidden by post-it background
-            const startPoint = getEdgePoint(fromRect, toCenter, 2);
-            const endPoint = getEdgePoint(toRect, fromCenter, 5);
+            const startPoint = getEdgePoint(fromRect, targetForStart, 2);
+            const endPoint = getEdgePoint(toRect, targetForEnd, 5);
             
             const dx = endPoint.x - startPoint.x;
             const dy = endPoint.y - startPoint.y;
@@ -972,38 +985,49 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
               setConnectionContextMenu({ visible: true, x: e.evt.clientX, y: e.evt.clientY, connection: conn });
             };
 
+            const points = conn.controlPoint 
+              ? [startPoint.x, startPoint.y, conn.controlPoint.x, conn.controlPoint.y, endPoint.x, endPoint.y]
+              : [startPoint.x, startPoint.y, endPoint.x, endPoint.y];
+
             return (
               <Group key={conn.id} onContextMenu={handleConnContextMenu}>
                 {/* Invisible thicker line for easier clicking */}
                 <Line
-                  points={[startPoint.x, startPoint.y, endPoint.x, endPoint.y]}
+                  points={points}
                   stroke="transparent"
                   strokeWidth={20}
+                  tension={conn.controlPoint ? 0.5 : 0}
                 />
                 {conn.bidirectionalStyle === 'double' ? (
                   <>
                     <Arrow
-                      points={[startPoint.x + nx, startPoint.y + ny, endPoint.x + nx, endPoint.y + ny]}
+                      points={conn.controlPoint 
+                        ? [startPoint.x + nx, startPoint.y + ny, conn.controlPoint.x + nx, conn.controlPoint.y + ny, endPoint.x + nx, endPoint.y + ny]
+                        : [startPoint.x + nx, startPoint.y + ny, endPoint.x + nx, endPoint.y + ny]}
                       stroke={getInvertedColor(conn.color, theme)}
                       fill={getInvertedColor(conn.color, theme)}
                       strokeWidth={2}
                       pointerLength={10}
                       pointerWidth={10}
                       dash={conn.isDashed ? [5, 5] : undefined}
+                      tension={conn.controlPoint ? 0.5 : 0}
                     />
                     <Arrow
-                      points={[endPoint.x - nx, endPoint.y - ny, startPoint.x - nx, startPoint.y - ny]}
+                      points={conn.controlPoint
+                        ? [endPoint.x - nx, endPoint.y - ny, conn.controlPoint.x - nx, conn.controlPoint.y - ny, startPoint.x - nx, startPoint.y - ny]
+                        : [endPoint.x - nx, endPoint.y - ny, startPoint.x - nx, startPoint.y - ny]}
                       stroke={getInvertedColor(conn.color, theme)}
                       fill={getInvertedColor(conn.color, theme)}
                       strokeWidth={2}
                       pointerLength={10}
                       pointerWidth={10}
                       dash={conn.isDashed ? [5, 5] : undefined}
+                      tension={conn.controlPoint ? 0.5 : 0}
                     />
                   </>
                 ) : (
                   <Arrow
-                    points={[startPoint.x, startPoint.y, endPoint.x, endPoint.y]}
+                    points={points}
                     stroke={getInvertedColor(conn.color, theme)}
                     fill={getInvertedColor(conn.color, theme)}
                     strokeWidth={2}
@@ -1011,16 +1035,35 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
                     pointerWidth={conn.endShape === 'arrow' ? 10 : 0}
                     pointerAtBeginning={conn.startShape === 'arrow'}
                     dash={conn.isDashed ? [5, 5] : undefined}
+                    tension={conn.controlPoint ? 0.5 : 0}
                   />
                 )}
                 {conn.text && (
                   <Text
                     text={conn.text}
-                    x={startPoint.x + dx / 2 - 20}
-                    y={startPoint.y + dy / 2 - 10}
+                    x={conn.controlPoint ? conn.controlPoint.x - 20 : startPoint.x + dx / 2 - 20}
+                    y={conn.controlPoint ? conn.controlPoint.y - 10 : startPoint.y + dy / 2 - 10}
                     fill={getInvertedColor(conn.color, theme)}
                     fontSize={14}
                     background={theme === 'dark' ? '#000000' : 'white'}
+                  />
+                )}
+                {/* Control Point Handle */}
+                {conn.controlPoint && editingConnection === conn.id && (
+                  <Circle
+                    x={conn.controlPoint.x}
+                    y={conn.controlPoint.y}
+                    radius={6}
+                    fill={theme === 'dark' ? '#ff00ff' : '#3b82f6'}
+                    stroke="white"
+                    strokeWidth={2}
+                    draggable
+                    onDragMove={(e) => {
+                      updateConnection(conn.id, { 
+                        controlPoint: { x: e.target.x(), y: e.target.y() } 
+                      });
+                    }}
+                    onDragEnd={() => saveHistory()}
                   />
                 )}
               </Group>
@@ -1448,6 +1491,36 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
             updateConnection(current.id, { bidirectionalStyle: current.bidirectionalStyle === 'double' ? 'single' : 'double' });
             setConnectionContextMenu({...connectionContextMenu, visible: false});
           }}>双方向スタイルの切り替え (↔ / ⇄)</button>
+
+          <button className={`px-4 py-3 text-left ${theme === 'dark' ? 'hover:bg-[#00f3ff]/10' : 'hover:bg-gray-100'}`} onClick={() => {
+            const current = connectionContextMenu.connection!;
+            if (current.controlPoint) {
+              updateConnection(current.id, { controlPoint: undefined });
+              setEditingConnection(null);
+            } else {
+              const fromRect = getRect(current.fromId);
+              const toRect = getRect(current.toId);
+              if (fromRect && toRect) {
+                const fromCenter = { x: fromRect.x + fromRect.width / 2, y: fromRect.y + fromRect.height / 2 };
+                const toCenter = { x: toRect.x + toRect.width / 2, y: toRect.y + toRect.height / 2 };
+                updateConnection(current.id, { 
+                  controlPoint: { 
+                    x: (fromCenter.x + toCenter.x) / 2, 
+                    y: (fromCenter.y + toCenter.y) / 2 
+                  } 
+                });
+                setEditingConnection(current.id);
+              }
+            }
+            setConnectionContextMenu({...connectionContextMenu, visible: false});
+          }}>{connectionContextMenu.connection?.controlPoint ? '曲線を解除' : '線を曲げる'}</button>
+
+          {connectionContextMenu.connection?.controlPoint && (
+            <button className={`px-4 py-3 text-left ${theme === 'dark' ? 'hover:bg-[#00f3ff]/10' : 'hover:bg-gray-100'}`} onClick={() => {
+              setEditingConnection(connectionContextMenu.connection!.id);
+              setConnectionContextMenu({...connectionContextMenu, visible: false});
+            }}>頂点を調整</button>
+          )}
 
           <button className={`px-4 py-3 text-left border-t mt-1 ${theme === 'dark' ? 'hover:bg-red-900/30 text-red-400 border-[#ff00ff]/30' : 'hover:bg-red-50 text-red-600 border-gray-100'}`} onClick={() => { 
             deleteConnection(connectionContextMenu.connection!.id); 

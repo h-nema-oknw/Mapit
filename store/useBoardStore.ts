@@ -46,6 +46,7 @@ export interface Connection {
   text?: string;
   isDashed?: boolean;
   bidirectionalStyle?: 'single' | 'double';
+  controlPoint?: { x: number, y: number };
 }
 
 export interface DrawingLine {
