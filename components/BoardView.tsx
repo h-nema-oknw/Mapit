@@ -8,7 +8,7 @@ import Konva from 'konva';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { File, Trash2, Edit2, Plus, X, Check, Map as MapIcon } from 'lucide-react';
+import { File, Trash2, Edit2, Plus, X, Check, Map as MapIcon, Search, ChevronUp, ChevronDown } from 'lucide-react';
 import Minimap from './Minimap';
 
 interface BoardViewProps {
@@ -195,7 +195,9 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
     copyPostIts,
     cutPostIts,
     pastePostIts,
-    showMinimap
+    showMinimap,
+    showSearch,
+    setShowSearch
   } = useBoardStore();
 
   const stageRef = useRef<Konva.Stage>(null);
@@ -240,6 +242,11 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
   const [groupContextMenu, setGroupContextMenu] = useState<{visible: boolean, x: number, y: number, groupId: string | null}>({visible: false, x: 0, y: 0, groupId: null});
   const [groupName, setGroupName] = useState('');
   
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<{id: string, type: 'postit' | 'connection' | 'group', x: number, y: number}[]>([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+
   // Selection Rect state
   const [selectionRect, setSelectionRect] = useState({ visible: false, startX: 0, startY: 0, endX: 0, endY: 0 });
   const [editingConnection, setEditingConnection] = useState<string | null>(null);
@@ -249,6 +256,106 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
   const currentPostItGroups = useBoardStore(state => state.postItGroups).filter(g => g.boardId === currentBoardId);
   const currentConnections = connections.filter(c => c.boardId === currentBoardId);
   const currentDrawings = drawings.filter(d => d.boardId === currentBoardId);
+
+  const jumpToElement = (x: number, y: number, id: string) => {
+    if (!stageRef.current) return;
+    
+    const stage = stageRef.current;
+    const targetScale = 1; 
+    
+    const newX = stage.width() / 2 - x * targetScale;
+    const newY = stage.height() / 2 - y * targetScale;
+    
+    setSelectedIds([id]);
+
+    const duration = 500;
+    let startTimestamp: number | null = null;
+    const startPos = { ...position };
+    const startScale = scale;
+    
+    const animate = (timestamp: number) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress); // Ease out exponential
+      
+      const nextScale = startScale + (targetScale - startScale) * ease;
+      const nextX = startPos.x + (newX - startPos.x) * ease;
+      const nextY = startPos.y + (newY - startPos.y) * ease;
+      
+      setScale(nextScale);
+      setPosition({ x: nextX, y: nextY });
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    
+    const results: {id: string, type: 'postit' | 'connection' | 'group', x: number, y: number}[] = [];
+    const q = query.toLowerCase();
+
+    currentPostIts.forEach(p => {
+      const matchText = (p.text || '').toLowerCase().includes(q);
+      const matchTitle = (p.title || '').toLowerCase().includes(q);
+      const matchTags = (p.tags || []).some(t => t.toLowerCase().includes(q));
+      
+      if (matchText || matchTitle || matchTags) {
+        results.push({ id: p.id, type: 'postit', x: p.x + p.width/2, y: p.y + p.height/2 });
+      }
+    });
+
+    currentConnections.forEach(c => {
+      if (c.text && c.text.toLowerCase().includes(q)) {
+        const from = currentPostIts.find(p => p.id === c.fromId);
+        const to = currentPostIts.find(p => p.id === c.toId);
+        if (from && to) {
+          results.push({ id: c.id, type: 'connection', x: (from.x + to.x)/2, y: (from.y + to.y)/2 });
+        }
+      }
+    });
+
+    currentPostItGroups.forEach(g => {
+      if (g.name.toLowerCase().includes(q)) {
+        const gPostIts = currentPostIts.filter(p => g.postItIds.includes(p.id));
+        if (gPostIts.length > 0) {
+          const avgX = gPostIts.reduce((acc, p) => acc + p.x + p.width/2, 0) / gPostIts.length;
+          const avgY = gPostIts.reduce((acc, p) => acc + p.y + p.height/2, 0) / gPostIts.length;
+          results.push({ id: g.id, type: 'group', x: avgX, y: avgY });
+        }
+      }
+    });
+
+    setSearchResults(results);
+    setCurrentSearchIndex(0);
+    if (results.length > 0) {
+      jumpToElement(results[0].x, results[0].y, results[0].id);
+    }
+  };
+
+  const nextResult = () => {
+    if (searchResults.length === 0) return;
+    const nextIdx = (currentSearchIndex + 1) % searchResults.length;
+    setCurrentSearchIndex(nextIdx);
+    const res = searchResults[nextIdx];
+    jumpToElement(res.x, res.y, res.id);
+  };
+
+  const prevResult = () => {
+    if (searchResults.length === 0) return;
+    const nextIdx = (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
+    setCurrentSearchIndex(nextIdx);
+    const res = searchResults[nextIdx];
+    jumpToElement(res.x, res.y, res.id);
+  };
   
   const getRect = (id: string) => {
     const p = currentPostIts.find(x => x.id === id);
@@ -283,6 +390,14 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
       }
 
       const isCtrl = e.ctrlKey || e.metaKey;
+
+      // Search (Ctrl+F)
+      if (isCtrl && e.key === 'f') {
+        e.preventDefault();
+        setShowSearch(true);
+        setTool('board');
+        return;
+      }
 
       // Escape key to reset state
       if (e.key === 'Escape') {
@@ -510,7 +625,7 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
     selectedIds, editingPostIt, deletePostIts, setSelectedIds, 
     selectAllPostIts, undo, redo, copyPostIts, cutPostIts, pastePostIts, 
     setTool, tool, beforeCtrlTool, currentPostIts, updatePostIt, saveHistory,
-    bringToFrontMany, sendToBackMany
+    bringToFrontMany, sendToBackMany, setShowSearch
   ]);
 
   useLayoutEffect(() => {
@@ -2368,6 +2483,51 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
           })()}
         </DialogContent>
       </Dialog>
+
+      {/* Floating Search Bar */}
+      {showSearch && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] pointer-events-none w-full max-w-md px-4">
+          <div className={`pointer-events-auto rounded-xl shadow-2xl border p-2 flex items-center gap-2 transition-all duration-300 ${
+            theme === 'dark' 
+              ? 'bg-[#000000]/90 backdrop-blur-md border-[#ff00ff]/30 text-[#00f3ff]' 
+              : 'bg-white/95 backdrop-blur-md border-gray-200 text-gray-800'
+          }`}>
+            <Search className="w-4 h-4 ml-2 opacity-50 shrink-0" />
+            <Input
+              autoFocus
+              className={`flex-1 border-none bg-transparent shadow-none focus-visible:ring-0 h-9 p-0 text-sm ${
+                theme === 'dark' ? 'text-[#00f3ff]' : 'text-gray-900'
+              }`}
+              placeholder="ボード内を検索..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.shiftKey ? prevResult() : nextResult();
+                } else if (e.key === 'Escape') {
+                  setShowSearch(false);
+                }
+              }}
+            />
+            {searchResults.length > 0 && (
+              <div className="flex items-center gap-1 shrink-0 px-2 border-l border-gray-200 dark:border-gray-800">
+                <span className="text-[10px] font-mono opacity-60 mr-1">
+                  {currentSearchIndex + 1} / {searchResults.length}
+                </span>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md" onClick={prevResult}>
+                  <ChevronUp className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md" onClick={nextResult}>
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full shrink-0" onClick={() => setShowSearch(false)}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Minimap Toggle & Component */}
       {showMinimap && (

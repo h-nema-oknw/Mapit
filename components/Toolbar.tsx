@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Hand, MousePointer2, Pen, Eraser, Link as LinkIcon, Undo2, Redo2, LayoutGrid, Download, HelpCircle, Sparkles, Trash2, Menu, Sun, Moon, MessageSquare } from 'lucide-react';
+import { Hand, MousePointer2, Pen, Eraser, Link as LinkIcon, Undo2, Redo2, LayoutGrid, Download, HelpCircle, Sparkles, Trash2, Menu, Sun, Moon, MessageSquare, Search } from 'lucide-react';
 import { useBoardStore } from '@/store/useBoardStore';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger as DialogTriggerUI, DialogClose } from '@/components/ui/dialog';
@@ -47,7 +47,9 @@ export default function Toolbar({
     setTheme, 
     addPostIt,
     clearDrawings,
-    selectedIds
+    selectedIds,
+    showSearch,
+    setShowSearch
   } = useBoardStore();
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
@@ -281,6 +283,13 @@ export default function Toolbar({
             <LayoutGrid className="w-4 h-4" />
           </TooltipTrigger>
           <TooltipContent>自動整列</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger render={<Button variant={showSearch ? 'secondary' : 'ghost'} size="icon" className={`rounded-full ${theme === 'dark' && showSearch ? 'bg-[#ff00ff]/20 text-[#ff00ff]' : theme === 'dark' ? 'text-[#00f3ff] hover:bg-[#00f3ff]/10' : ''}`} onClick={() => setShowSearch(!showSearch)} />}>
+            <Search className="w-4 h-4" />
+          </TooltipTrigger>
+          <TooltipContent>検索 (Ctrl+F)</TooltipContent>
         </Tooltip>
 
         <Tooltip>
