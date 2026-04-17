@@ -3,6 +3,8 @@
 ## 概要
 直感的な操作で付箋（Post-it）を配置・連結・グループ化し、アイデアを整理することができるホワイトボード／マインドマップツールです。強力なAIアシスタント機能（Generative AI）を備えており、入力された指示や画像をもとに、自動的にマインドマップを生成・拡張することができます。
 
+**👉 [Google AI Studio Build でこのアプリを編集・使用する](https://ai.studio/build)**
+
 ## 技術スタック
 - **Framework:** Next.js 15 (App Router) / React 19
 - **State Management:** Zustand
