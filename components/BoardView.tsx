@@ -170,8 +170,11 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
     deleteConnection,
     saveHistory,
     deletePostIt,
+    deletePostIts,
     bringToFront,
+    bringToFrontMany,
     sendToBack,
+    sendToBackMany,
     setCurrentBoard,
     setPostIts,
     mergePostIts,
@@ -182,7 +185,8 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
     setConnections,
     theme,
     selectedIds,
-    setSelectedIds
+    setSelectedIds,
+    updatePostIts
   } = useBoardStore();
 
   const stageRef = useRef<Konva.Stage>(null);
@@ -1414,11 +1418,12 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
           
           <button className={`px-4 py-3 text-left ${theme === 'dark' ? 'hover:bg-[#00f3ff]/10' : 'hover:bg-gray-100'}`} onClick={() => {
             if (isMultiSelected) {
+              const newConnections: Omit<Connection, 'id' | 'boardId'>[] = [];
               selectedIds.forEach(id => {
                 if (id !== contextMenu.postIt!.id) {
                   const exists = connections.some(c => (c.fromId === contextMenu.postIt!.id && c.toId === id) || (c.fromId === id && c.toId === contextMenu.postIt!.id));
                   if (!exists) {
-                    addConnection({
+                    newConnections.push({
                       fromId: contextMenu.postIt!.id,
                       toId: id,
                       color: theme === 'dark' ? '#00f3ff' : '#3b82f6',
@@ -1428,6 +1433,10 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
                   }
                 }
               });
+              if (newConnections.length > 0) {
+                const addConns = useBoardStore.getState().addConnections;
+                addConns(newConnections);
+              }
               setContextMenu({...contextMenu, visible: false});
             } else {
               setConnectingFrom(contextMenu.postIt!.id);
@@ -1444,7 +1453,7 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
 
           <button className={`px-4 py-3 text-left border-t mt-1 ${theme === 'dark' ? 'hover:bg-[#00f3ff]/10 border-[#ff00ff]/30' : 'hover:bg-gray-100 border-gray-100'}`} onClick={() => {
             if (isMultiSelected) {
-              selectedIds.forEach(id => bringToFront(id));
+              bringToFrontMany(selectedIds);
             } else {
               bringToFront(contextMenu.postIt!.id);
             }
@@ -1453,7 +1462,7 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
 
           <button className={`px-4 py-3 text-left ${theme === 'dark' ? 'hover:bg-[#00f3ff]/10' : 'hover:bg-gray-100'}`} onClick={() => {
             if (isMultiSelected) {
-              selectedIds.forEach(id => sendToBack(id));
+              sendToBackMany(selectedIds);
             } else {
               sendToBack(contextMenu.postIt!.id);
             }
@@ -1469,7 +1478,7 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
                   : (contextMenu.postIt?.fontSize === size ? 'bg-blue-50 border-blue-200 text-blue-600' : 'text-gray-600 hover:bg-gray-50')}`}
                 onClick={() => {
                   if (isMultiSelected) {
-                    selectedIds.forEach(id => updatePostIt(id, { fontSize: size }));
+                    updatePostIts(selectedIds, { fontSize: size });
                   } else {
                     updatePostIt(contextMenu.postIt!.id, { fontSize: size });
                   }
@@ -1489,7 +1498,7 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
                 style={{backgroundColor: c}} 
                 onClick={() => { 
                   if (isMultiSelected) {
-                    selectedIds.forEach(id => updatePostIt(id, { color: c }));
+                    updatePostIts(selectedIds, { color: c });
                   } else {
                     updatePostIt(contextMenu.postIt!.id, {color: c}); 
                   }
@@ -1501,7 +1510,7 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
           
           <button className={`px-4 py-3 text-left border-t mt-1 ${theme === 'dark' ? 'hover:bg-red-900/30 text-red-400 border-[#ff00ff]/30' : 'hover:bg-red-50 text-red-600 border-gray-100'}`} onClick={() => { 
             if (isMultiSelected) {
-              selectedIds.forEach(id => deletePostIt(id));
+              deletePostIts(selectedIds);
               setSelectedIds([]);
             } else {
               deletePostIt(contextMenu.postIt!.id); 
@@ -1596,19 +1605,24 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
           className={`fixed border shadow-lg rounded-md py-1 z-50 text-sm min-w-[180px] flex flex-col ${theme === 'dark' ? 'bg-[#000000] border-[#ff00ff] text-[#00f3ff] shadow-[0_0_20px_rgba(255,0,255,0.3)]' : 'bg-white border-gray-200 text-gray-900'}`}
         >
           <button className={`px-4 py-3 text-left font-semibold border-b mb-1 pb-2 ${theme === 'dark' ? 'hover:bg-[#ff00ff]/10 text-[#00f3ff] border-[#ff00ff]/30' : 'hover:bg-gray-100 text-blue-600 border-gray-100'}`} onClick={() => {
+            const newConnections: Omit<Connection, 'id' | 'boardId'>[] = [];
             for (let i = 0; i < selectedIds.length; i++) {
               for (let j = i + 1; j < selectedIds.length; j++) {
                 const fromId = selectedIds[i];
                 const toId = selectedIds[j];
                 const exists = connections.some(c => (c.fromId === fromId && c.toId === toId) || (c.fromId === toId && c.toId === fromId));
                 if (!exists) {
-                  addConnection({
+                  newConnections.push({
                     fromId, toId,
                     color: theme === 'dark' ? '#00f3ff' : '#3b82f6',
                     startShape: 'none', endShape: 'arrow'
                   });
                 }
               }
+            }
+            if (newConnections.length > 0) {
+              const addConns = useBoardStore.getState().addConnections;
+              addConns(newConnections);
             }
             setMultiSelectContextMenu({...multiSelectContextMenu, visible: false});
           }}>選択した付箋を連結</button>

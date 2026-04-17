@@ -347,6 +347,7 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
                   : (theme === 'dark' ? 'bg-[#1e1e20] text-gray-200 border border-[#00f3ff]/20' : 'bg-white border border-gray-100 shadow-sm')
               }`}>
                 {msg.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={msg.imageUrl} alt="Uploaded" className="max-w-full rounded-lg mb-2 border border-white/10" />
                 )}
                 <div className="whitespace-pre-wrap">{msg.content}</div>
@@ -370,6 +371,7 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
       <div className={`p-4 border-t ${theme === 'dark' ? 'bg-[#000000] border-[#ff00ff]/30' : 'bg-white border-gray-100'}`}>
         {selectedImage && (
           <div className="relative inline-block mb-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={selectedImage} alt="Preview" className="h-16 w-16 object-cover rounded-md border border-gray-200" />
             <button 
               onClick={() => setSelectedImage(null)}

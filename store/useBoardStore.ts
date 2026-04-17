@@ -116,14 +116,19 @@ export interface BoardState {
   addPostIt: (postIt: Omit<PostIt, 'id' | 'boardId'>) => void;
   updatePostIt: (id: string, data: Partial<PostIt>) => void;
   deletePostIt: (id: string) => void;
+  deletePostIts: (ids: string[]) => void;
   bringToFront: (id: string) => void;
   sendToBack: (id: string) => void;
+  bringToFrontMany: (ids: string[]) => void;
+  sendToBackMany: (ids: string[]) => void;
+  updatePostIts: (ids: string[], data: Partial<PostIt>) => void;
   
   createPostItGroup: (name: string, postItIds: string[], color?: string) => void;
   updatePostItGroup: (id: string, data: Partial<PostItGroup>) => void;
   deletePostItGroup: (id: string) => void;
   
   addConnection: (connection: Omit<Connection, 'id' | 'boardId'>) => void;
+  addConnections: (connections: Omit<Connection, 'id' | 'boardId'>[]) => void;
   updateConnection: (id: string, data: Partial<Connection>) => void;
   deleteConnection: (id: string) => void;
 
@@ -384,6 +389,16 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     });
   },
 
+  updatePostIts: (ids, data) => {
+    set((state) => {
+      const newState = {
+        postIts: state.postIts.map((p) => ids.includes(p.id) ? { ...p, ...data } : p),
+      };
+      saveStateToStorage({ ...state, ...newState });
+      return newState;
+    });
+  },
+
   deletePostIt: (id) => {
     const { saveHistory } = get();
     saveHistory();
@@ -393,6 +408,22 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         connections: state.connections.filter((c) => c.fromId !== id && c.toId !== id),
         drawings: state.drawings.filter((d) => d.postItId !== id),
         postItGroups: state.postItGroups.map(g => ({ ...g, postItIds: g.postItIds.filter(pid => pid !== id) })).filter(g => g.postItIds.length > 0)
+      };
+      saveStateToStorage({ ...state, ...newState });
+      return newState;
+    });
+  },
+
+  deletePostIts: (ids) => {
+    const { saveHistory } = get();
+    saveHistory();
+    set((state) => {
+      const idSet = new Set(ids);
+      const newState = {
+        postIts: state.postIts.filter((p) => !idSet.has(p.id)),
+        connections: state.connections.filter((c) => !idSet.has(c.fromId) && !idSet.has(c.toId)),
+        drawings: state.drawings.filter((d) => !d.postItId || !idSet.has(d.postItId)),
+        postItGroups: state.postItGroups.map(g => ({ ...g, postItIds: g.postItIds.filter(pid => !idSet.has(pid)) })).filter(g => g.postItIds.length > 0)
       };
       saveStateToStorage({ ...state, ...newState });
       return newState;
@@ -412,6 +443,19 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     });
   },
 
+  bringToFrontMany: (ids) => {
+    set((state) => {
+      const idSet = new Set(ids);
+      const toFront = state.postIts.filter(p => idSet.has(p.id));
+      const others = state.postIts.filter(p => !idSet.has(p.id));
+      const newState = {
+        postIts: [...others, ...toFront]
+      };
+      saveStateToStorage({ ...state, ...newState });
+      return newState;
+    });
+  },
+
   sendToBack: (id) => {
     set((state) => {
       const postIt = state.postIts.find(p => p.id === id);
@@ -419,6 +463,19 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       const otherPostIts = state.postIts.filter(p => p.id !== id);
       const newState = {
         postIts: [postIt, ...otherPostIts]
+      };
+      saveStateToStorage({ ...state, ...newState });
+      return newState;
+    });
+  },
+
+  sendToBackMany: (ids) => {
+    set((state) => {
+      const idSet = new Set(ids);
+      const toBack = state.postIts.filter(p => idSet.has(p.id));
+      const others = state.postIts.filter(p => !idSet.has(p.id));
+      const newState = {
+        postIts: [...toBack, ...others]
       };
       saveStateToStorage({ ...state, ...newState });
       return newState;
@@ -475,6 +532,18 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     saveHistory();
     set((state) => {
       const newState = { connections: [...state.connections, { ...connection, id: uuidv4(), boardId: currentBoardId }] };
+      saveStateToStorage({ ...state, ...newState });
+      return newState;
+    });
+  },
+
+  addConnections: (connections) => {
+    const { currentBoardId, saveHistory } = get();
+    if (!currentBoardId || connections.length === 0) return;
+    saveHistory();
+    set((state) => {
+      const newConnections = connections.map(c => ({ ...c, id: uuidv4(), boardId: currentBoardId }));
+      const newState = { connections: [...state.connections, ...newConnections] };
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
