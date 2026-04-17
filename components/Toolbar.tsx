@@ -21,6 +21,7 @@ interface ToolbarProps {
   setIsAIVisible: (visible: boolean) => void;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (open: boolean) => void;
+  stageRef: React.RefObject<any>;
 }
 
 export default function Toolbar({ 
@@ -35,7 +36,8 @@ export default function Toolbar({
   isAIVisible, 
   setIsAIVisible,
   isSidebarOpen,
-  setIsSidebarOpen
+  setIsSidebarOpen,
+  stageRef
 }: ToolbarProps) {
   const { 
     undo, 
@@ -58,7 +60,7 @@ export default function Toolbar({
   const drawColors = ['#000000', '#ef4444', '#3b82f6', '#22c55e', '#eab308'];
 
   const handleExportPDF = async () => {
-    const stage = (window as any).konvaStage;
+    const stage = stageRef.current;
     if (!stage) {
       console.error('Konva stage not found');
       return;

@@ -38,6 +38,7 @@ export default function Home() {
   const [isMounted, setIsMounted] = useState(false);
   const [isAIVisible, setIsAIVisible] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const stageRef = React.useRef<any>(null);
   const { isLoaded, theme } = useBoardStore();
 
   useEffect(() => {
@@ -115,6 +116,7 @@ export default function Home() {
           setIsAIVisible={setIsAIVisible}
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
+          stageRef={stageRef}
         />
         <div className="flex-1 flex flex-row overflow-hidden relative">
           <BoardView 
@@ -123,6 +125,7 @@ export default function Home() {
             drawingColor={drawingColor} 
             drawingThickness={currentThickness} 
             postItColor={postItColor}
+            stageRef={stageRef}
           />
           <AnimatePresence>
             {isAIVisible && (

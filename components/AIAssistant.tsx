@@ -191,7 +191,7 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
       contents.push({ text: `Current Board State: ${JSON.stringify(currentBoardData)}\n\nRecent Chat History:\n${historyContext}\n\nUser Instruction: ${prompt}` });
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.5-flash-preview-05-20",
         contents: { parts: contents },
         config: {
           systemInstruction,
@@ -327,8 +327,12 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
           const existingPostIts = postIts.filter(p => p.boardId === currentBoardId && !updatedIds.has(p.id));
           setPostIts([...existingPostIts, ...newPostIts]);
           
-          const existingConnections = connections.filter(c => c.boardId === currentBoardId);
-          // Simple merge for connections - might need more complex logic to avoid duplicates
+          const newConnectionPairs = new Set(
+            newConnections.map((c: any) => `${c.fromId}__${c.toId}`)
+          );
+          const existingConnections = connections
+            .filter(c => c.boardId === currentBoardId)
+            .filter(c => !newConnectionPairs.has(`${c.fromId}__${c.toId}`));
           setConnections([...existingConnections, ...newConnections]);
         }
       }
@@ -363,7 +367,16 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
     });
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
+      const apiKey = useBoardStore.getState().geminiApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+      if (!apiKey) {
+        addChatMessage(currentBoardId, {
+          role: 'model',
+          content: 'エラー: Gemini APIキーが設定されていません。設定から追加してください。'
+        });
+        setIsLoading(false);
+        return;
+      }
+      const ai = new GoogleGenAI({ apiKey });
       const currentBoardData = {
         postIts: postIts.filter(p => p.boardId === currentBoardId).map(p => ({ text: p.text })),
         connections: connections.filter(c => c.boardId === currentBoardId).map(c => ({
@@ -373,7 +386,7 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
       };
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.5-flash-preview-05-20",
         contents: `以下のボードデータを解析し、その内容を分かりやすく文章で説明してください：\n${JSON.stringify(currentBoardData)}`,
       });
 

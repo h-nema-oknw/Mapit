@@ -191,6 +191,8 @@ const saveStateToStorage = async (state: any) => {
   }
 };
 
+let updatePostItTimer: ReturnType<typeof setTimeout> | null = null;
+
 export const useBoardStore = create<BoardState>((set, get) => ({
   boards: [],
   boardGroups: [],
@@ -410,6 +412,12 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+
+    if (updatePostItTimer) clearTimeout(updatePostItTimer);
+    updatePostItTimer = setTimeout(() => {
+      get().saveHistory();
+      updatePostItTimer = null;
+    }, 300);
   },
 
   updatePostIts: (ids, data) => {
@@ -420,6 +428,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    get().saveHistory();
   },
 
   deletePostIt: (id) => {
@@ -490,6 +499,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    get().saveHistory();
   },
 
   sendToBackMany: (ids) => {

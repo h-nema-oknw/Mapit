@@ -17,6 +17,7 @@ interface BoardViewProps {
   drawingColor: string;
   drawingThickness: number;
   postItColor: string;
+  stageRef: React.RefObject<any>;
 }
 
 // Custom Image Component for Post-its
@@ -57,7 +58,8 @@ const PostItDrawingCanvas = ({ postIt, drawings, theme, currentLine }: { postIt:
     c.width = postIt.width;
     c.height = postIt.height;
     return c;
-  }, [postIt.width, postIt.height]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postIt.id, postIt.width, postIt.height]);
 
   React.useEffect(() => {
     const ctx = canvas.getContext('2d');
@@ -155,7 +157,7 @@ const getConvexHull = (points: {x: number, y: number}[]) => {
   return lower.concat(upper);
 };
 
-export default function BoardView({ tool, setTool, drawingColor, drawingThickness, postItColor }: BoardViewProps) {
+export default function BoardView({ tool, setTool, drawingColor, drawingThickness, postItColor, stageRef }: BoardViewProps) {
   const { 
     currentBoardId, 
     boards,
@@ -200,7 +202,6 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
     setShowSearch
   } = useBoardStore();
 
-  const stageRef = useRef<Konva.Stage>(null);
   const layerRef = useRef<Konva.Layer>(null);
   const drawingsLayerRef = useRef<Konva.Layer>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -625,7 +626,7 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
     selectedIds, editingPostIt, deletePostIts, setSelectedIds, 
     selectAllPostIts, undo, redo, copyPostIts, cutPostIts, pastePostIts, 
     setTool, tool, beforeCtrlTool, currentPostIts, updatePostIt, saveHistory,
-    bringToFrontMany, sendToBackMany, setShowSearch
+    bringToFrontMany, sendToBackMany, setShowSearch, stageRef
   ]);
 
   useLayoutEffect(() => {
@@ -671,19 +672,6 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
   }, [currentBoardId]); // Re-run when board changes to ensure containerRef is captured
 
   const [isMinimapVisible, setIsMinimapVisible] = useState(true);
-
-  // Expose stage to window for export
-  useEffect(() => {
-    const currentStage = stageRef.current;
-    if (currentStage) {
-      (window as any).konvaStage = currentStage;
-    }
-    return () => {
-      if ((window as any).konvaStage === currentStage) {
-        delete (window as any).konvaStage;
-      }
-    };
-  }, []); // Run once on mount to establish ref association, or when manually needed
 
   const handleWheel = (e: any) => {
     e.evt.preventDefault();
