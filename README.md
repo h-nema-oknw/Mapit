@@ -1,20 +1,65 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Map!t (Brainstorming & Mind Mapping Board)
 
-# Run and deploy your AI Studio app
+## 概要
+直感的な操作で付箋（Post-it）を配置・連結・グループ化し、アイデアを整理することができるホワイトボード／マインドマップツールです。強力なAIアシスタント機能（Generative AI）を備えており、入力された指示や画像をもとに、自動的にマインドマップを生成・拡張することができます。
 
-This contains everything you need to run your app locally.
+## 技術スタック
+- **Framework:** Next.js 15 (App Router) / React 19
+- **State Management:** Zustand
+- **Canvas / Drawing:** Konva (`react-konva`)
+- **Styling:** Tailwind CSS / shadcn/ui
+- **Icons:** Lucide React
+- **Local Storage / DB:** IndexedDB (`idb-keyval`)
+- **AI Integration:** Google Gemini API (`@google/genai` / Gemini 3 Flash Preview)
 
-View your app in AI Studio: https://ai.studio/apps/64df31cc-8e9c-49ed-bd66-f5bd1cae16f4
+## アーキテクチャ
+本システムはクライアントサイドを中心に動作するSPA (Single Page Application) アーキテクチャを採用しています。
+バックエンドサーバーによる状態の保存は行わず、全てのデータはブラウザ標準の `IndexedDB` にローカルに保存されます。
 
-## Run Locally
+- **状態管理 (Zustand):**
+  キャンバスの状態、コンテキストメニュー、複数選択状況、Undo/Redo履歴、テーマ設定（Light/Dark）などをフロントエンドで一元管理しています。バッチ処理を通じたパフォーマンスの最適化も実装されています。
+- **Canvas レンダリング (Konva):**
+  ホワイトボード部分の描画、ズーム、パン操作、要素（付箋、描画線、連結矢印など）の自由な配置・イベントハンドリングを高性能に行います。
+- **AI アシスタント連携:**
+  ユーザーからのテキストプロンプトや画像入力を受け取り、最新のキャンバス状態と一緒にGeminiモデルへプロンプトを送信し、画面内の付箋・連結データを動的に変更（アクション生成）します。
 
-**Prerequisites:**  Node.js
+## DB仕様 (データ構造 / IndexedDB)
+データはブラウザローカルにある `IndexedDB` トークストア (key: `mindmap-state`) にシリアライズされたJSONオブジェクトとして保存・復元されます。以下は主なデータのスキーマ定義です。
 
+- **Board:** ボード（キャンバス）の情報（ID、名前、説明、作成・更新日時）
+- **BoardGroup:** ボードのフォルダ整理などのためのグループ情報
+- **PostIt (付箋):**
+  - ボード上の絶対座標 (x, y)、サイズ (width, height)、背景色、テキスト内容、フォントサイズ
+  - タグ (`tags`) 情報、複数付箋の統合データ (`mergedPostItIds`, `mergedData`)
+- **PostItGroup:** ボード上の付箋複数を囲む枠線のグループ定義情報
+- **Connection (連結線):**
+  - 起点の付箋ID (`fromId`)、終点の付箋ID (`toId`)
+  - 線の色、形状（矢印）、制御点（`controlPoint`・曲線を表現）
+  - 双方向の矢印情報や波線・点線情報のスタイル定義パラメータ
+- **DrawingLine (フリー描画):**
+  - ベクター点座標の配列 (`points`)、色、線の太さ、ツールタイプ (`pen` / `eraser`)
+  - ボード上への描画ならびに、付箋に紐づくインライン描画情報として管理されます。
+- **ChatHistory:** 
+  - AIアシスタントとのやり取り履歴（プロンプト、AIからのメッセージ、画像添付履歴など）
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## システム仕様
+- **キャンバス・全体操作:**
+  - いつでも自由に拡張できる無限スクロール
+  - マウスホイールによるズームイン/ズームアウト
+  - アンドゥ / リドゥ機能のサポート（履歴管理は50ステップまでのローカルキャッシュ保持）
+  - ライトモード / ダークモードのUI表示切替
+- **付箋・図形操作機能:**
+  - クリック・ドラッグ＆ドロップによる直感的な配置と移動
+  - 複数付箋の同時選択、一括移動
+  - 選択要素に対する一括変更（カラー変更、フォントサイズの一括適用、一括削除）
+  - 面の重なり合いの順序変更（最前面・最背面に移動）機能
+  - 付箋内の情報を1つの付箋に統合管理する（Merge / Unmerge）機能
+- **連結機能（コネクション）:**
+  - 付箋同士の直線や曲線の連結。右クリックで「線を曲げる」頂点操作を行いカーブの描画が可能
+  - 終点スタイルの変更（双方向矢印など）
+  - 複数付箋を選択し、「選択した付箋を相互連結」「指定した付箋から全ての選択付箋に連結」といったバルク連結機能
+- **フリードロー (ペン操作):**
+  - キャンバス領域ならびに付箋自体に対するペン・マーカーのようなフリーハンド描画・消しゴム機能
+- **AI 連携機能 (AIAssistant):**
+  - 現在のボードの状態（付箋要素、文章、繋がり）をAIに解釈させる機能
+  - アップロードした画像やテキストの指示から付箋情報を構成させる自動モデリング機能
