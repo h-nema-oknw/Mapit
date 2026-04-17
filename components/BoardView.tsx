@@ -354,41 +354,27 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
           }
           return;
         }
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          if (selectedIds.length > 0) sendToBackMany(selectedIds);
-          return;
-        }
-        if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          if (selectedIds.length > 0) bringToFrontMany(selectedIds);
-          return;
-        }
       }
 
       // Arrow keys for movement, resize, and panning
       const isShift = e.shiftKey;
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        // If holding Ctrl or tool is board, it's "Board Mode"
-        if (isCtrl || tool === 'board') {
-          e.preventDefault();
-          const panStep = 20;
-          setPosition(prev => {
-            let newX = prev.x;
-            let newY = prev.y;
-            if (e.key === 'ArrowUp') newY += panStep;
-            if (e.key === 'ArrowDown') newY -= panStep;
-            if (e.key === 'ArrowLeft') newX += panStep;
-            if (e.key === 'ArrowRight') newX -= panStep;
-            return { x: newX, y: newY };
-          });
-          return;
-        }
-
-        // Normal move or resize (when NOT in board mode and NOT holding ctrl for board mode)
+        
+        // 1. If post-its are selected, handle move/resize OR layer changes (with Ctrl)
         if (selectedIds.length > 0) {
           e.preventDefault();
-          saveHistory();
+          
+          if (isCtrl) {
+            if (e.key === 'ArrowDown') {
+              sendToBackMany(selectedIds);
+              return;
+            }
+            if (e.key === 'ArrowUp') {
+              bringToFrontMany(selectedIds);
+              return;
+            }
+          }
+
           const moveStep = 5;
           const resizeStep = 5;
 
@@ -413,12 +399,16 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
               updatePostIt(p.id, { x: newX, y: newY });
             }
           });
+          saveHistory();
           return;
-        } 
+        }
+
+        // 2. No selection: Handling Board Operations
+        const isBoardContext = isCtrl || tool === 'board';
         
-        if (isShift) {
-          // Zoom in/out when nothing is selected
-          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        if (isBoardContext) {
+          // Zoom: (Ctrl OR BoardMode) + Shift + ArrowUp/Down
+          if (isShift && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
             e.preventDefault();
             const scaleBy = 1.1;
             const stage = stageRef.current;
@@ -443,7 +433,50 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
               x: center.x - relatedPointTo.x * newScale,
               y: center.y - relatedPointTo.y * newScale,
             });
+            return;
           }
+          
+          // Pan: (Ctrl OR BoardMode) + Arrow Key
+          e.preventDefault();
+          const panStep = 20;
+          setPosition(prev => {
+            let newX = prev.x;
+            let newY = prev.y;
+            if (e.key === 'ArrowUp') newY += panStep;
+            if (e.key === 'ArrowDown') newY -= panStep;
+            if (e.key === 'ArrowLeft') newX += panStep;
+            if (e.key === 'ArrowRight') newX -= panStep;
+            return { x: newX, y: newY };
+          });
+          return;
+        }
+
+        // Optional fallback zoom if just Shift + Arrows when tool is NOT board and Ctrl is NOT held
+        if (isShift && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+          e.preventDefault();
+          const scaleBy = 1.1;
+          const stage = stageRef.current;
+          if (!stage) return;
+
+          const oldScale = stage.scaleX();
+          const center = {
+            x: stage.width() / 2,
+            y: stage.height() / 2,
+          };
+
+          const relatedPointTo = {
+            x: (center.x - stage.x()) / oldScale,
+            y: (center.y - stage.y()) / oldScale,
+          };
+
+          let newScale = e.key === 'ArrowDown' ? oldScale / scaleBy : oldScale * scaleBy;
+          newScale = Math.max(0.1, Math.min(newScale, 5));
+
+          setScale(newScale);
+          setPosition({
+            x: center.x - relatedPointTo.x * newScale,
+            y: center.y - relatedPointTo.y * newScale,
+          });
         }
       }
 

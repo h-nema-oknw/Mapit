@@ -217,11 +217,14 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    // Initialize history after setting current board
+    get().saveHistory();
     return id;
   },
 
   setCurrentBoard: (id) => {
     set({ currentBoardId: id, history: [], historyIndex: -1 });
+    if (id) get().saveHistory();
   },
 
   updateBoard: (id, data) => {
@@ -339,6 +342,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    get().saveHistory();
   },
 
   createBoardGroup: (name) => {
@@ -382,12 +386,12 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   addPostIt: (postIt) => {
     const { currentBoardId, saveHistory } = get();
     if (!currentBoardId) return;
-    saveHistory();
     set((state) => {
       const newState = { postIts: [...state.postIts, { ...postIt, id: uuidv4(), boardId: currentBoardId }] };
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    saveHistory();
   },
 
   updatePostIt: (id, data) => {
@@ -411,8 +415,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   },
 
   deletePostIt: (id) => {
-    const { saveHistory } = get();
-    saveHistory();
     set((state) => {
       const newState = {
         postIts: state.postIts.filter((p) => p.id !== id),
@@ -423,11 +425,10 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    get().saveHistory();
   },
 
   deletePostIts: (ids) => {
-    const { saveHistory } = get();
-    saveHistory();
     set((state) => {
       const idSet = new Set(ids);
       const newState = {
@@ -439,6 +440,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    get().saveHistory();
   },
 
   bringToFront: (id) => {
@@ -452,6 +454,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    get().saveHistory();
   },
 
   bringToFrontMany: (ids) => {
@@ -465,6 +468,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    get().saveHistory();
   },
 
   sendToBack: (id) => {
@@ -491,12 +495,12 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    get().saveHistory();
   },
 
   createPostItGroup: (name, postItIds, color = '#3b82f6') => {
     const { currentBoardId, saveHistory } = get();
     if (!currentBoardId) return;
-    saveHistory();
     set((state) => {
       const newGroup: PostItGroup = { id: uuidv4(), boardId: currentBoardId, name, postItIds, color };
       // Auto-add tag to post-its
@@ -513,6 +517,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    saveHistory();
   },
 
   updatePostItGroup: (id, data) => {
@@ -526,8 +531,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   },
 
   deletePostItGroup: (id) => {
-    const { saveHistory } = get();
-    saveHistory();
     set((state) => {
       const newState = {
         postItGroups: state.postItGroups.filter((g) => g.id !== id),
@@ -535,29 +538,30 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    get().saveHistory();
   },
 
   addConnection: (connection) => {
     const { currentBoardId, saveHistory } = get();
     if (!currentBoardId) return;
-    saveHistory();
     set((state) => {
       const newState = { connections: [...state.connections, { ...connection, id: uuidv4(), boardId: currentBoardId }] };
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    saveHistory();
   },
 
   addConnections: (connections) => {
     const { currentBoardId, saveHistory } = get();
     if (!currentBoardId || connections.length === 0) return;
-    saveHistory();
     set((state) => {
       const newConnections = connections.map(c => ({ ...c, id: uuidv4(), boardId: currentBoardId }));
       const newState = { connections: [...state.connections, ...newConnections] };
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    saveHistory();
   },
 
   updateConnection: (id, data) => {
@@ -571,24 +575,23 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   },
 
   deleteConnection: (id) => {
-    const { saveHistory } = get();
-    saveHistory();
     set((state) => {
       const newState = { connections: state.connections.filter((c) => c.id !== id) };
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    get().saveHistory();
   },
 
   addDrawing: (drawing) => {
     const { currentBoardId, saveHistory } = get();
     if (!currentBoardId) return;
-    saveHistory();
     set((state) => {
       const newState = { drawings: [...state.drawings, { ...drawing, id: uuidv4(), boardId: currentBoardId }] };
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    saveHistory();
   },
 
   updateDrawing: (id, data) => {
@@ -602,18 +605,15 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   },
 
   deleteDrawing: (id) => {
-    const { saveHistory } = get();
-    saveHistory();
     set((state) => {
       const newState = { drawings: state.drawings.filter((d) => d.id !== id) };
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    get().saveHistory();
   },
 
   clearDrawings: (boardId, postItIds) => {
-    const { saveHistory } = get();
-    saveHistory();
     set((state) => {
       let newState;
       if (postItIds && postItIds.length > 0) {
@@ -640,6 +640,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    get().saveHistory();
   },
 
   undo: () => {
@@ -693,7 +694,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   autoArrange: () => {
     const { currentBoardId, postIts, saveHistory } = get();
     if (!currentBoardId) return;
-    saveHistory();
     
     const boardPostIts = postIts.filter(p => p.boardId === currentBoardId);
     if (boardPostIts.length === 0) return;
@@ -718,6 +718,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    saveHistory();
   },
 
   setPostIts: (newPostIts) => {
@@ -770,7 +771,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   cutPostIts: (ids) => {
     const { postIts, saveHistory, currentBoardId } = get();
     if (!currentBoardId) return;
-    saveHistory();
     const toCopy = postIts.filter(p => ids.includes(p.id));
     const remaining = postIts.filter(p => !ids.includes(p.id));
     set({ 
@@ -779,12 +779,12 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       selectedIds: []
     });
     saveStateToStorage({ ...get(), postIts: remaining });
+    saveHistory();
   },
 
   pastePostIts: (x, y) => {
     const { currentBoardId, clipboardPostIts, postIts, saveHistory } = get();
     if (!currentBoardId || clipboardPostIts.length === 0) return;
-    saveHistory();
     
     // Find bounds of clipboard items to paste relative to (x, y)
     const minX = Math.min(...clipboardPostIts.map(p => p.x));
@@ -804,12 +804,12 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     };
     set(newState);
     saveStateToStorage({ ...get(), ...newState });
+    saveHistory();
   },
 
   mergePostIts: (ids) => {
     if (ids.length < 2) return;
     const { postIts, connections, drawings, saveHistory } = get();
-    saveHistory();
 
     const selectedPostIts = postIts.filter(p => ids.includes(p.id));
     if (selectedPostIts.length < 2) return;
@@ -895,6 +895,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    get().saveHistory();
   },
 
   switchMergedPostIt: (id, direction) => {
@@ -918,14 +919,13 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         postIts: state.postIts.map(p => p.id === id ? { ...p, ...data, activeMergedIndex: newIndex } : p)
       };
     });
+    get().saveHistory();
   },
 
   unmergePostIt: (masterId, mergedIndex) => {
-    const { postIts, saveHistory } = get();
+    const { postIts } = get();
     const master = postIts.find(p => p.id === masterId);
     if (!master || !master.mergedData || !master.mergedPostItIds) return;
-    
-    saveHistory();
     
     const dataToUnmerge = master.mergedData[mergedIndex];
     const idToUnmerge = master.mergedPostItIds[mergedIndex];
@@ -970,6 +970,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    get().saveHistory();
   },
 
   updateMergedPostIt: (masterId, mergedIndex, data) => {
@@ -999,7 +1000,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   },
 
   deleteMergedPostIt: (masterId, mergedIndex) => {
-    const { postIts, saveHistory } = get();
+    const { postIts } = get();
     const master = postIts.find(p => p.id === masterId);
     if (!master || !master.mergedData || !master.mergedPostItIds) return;
 
@@ -1007,8 +1008,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       get().deletePostIt(masterId);
       return;
     }
-
-    saveHistory();
 
     set((state) => {
       const newMergedData = master.mergedData!.filter((_, i) => i !== mergedIndex);
@@ -1034,6 +1033,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       saveStateToStorage({ ...state, ...newState });
       return newState;
     });
+    get().saveHistory();
   },
 
   addChatMessage: (boardId, message) => {
