@@ -119,6 +119,7 @@ export default function Home() {
         <div className="flex-1 flex flex-row overflow-hidden relative">
           <BoardView 
             tool={tool} 
+            setTool={setTool}
             drawingColor={drawingColor} 
             drawingThickness={currentThickness} 
             postItColor={postItColor}

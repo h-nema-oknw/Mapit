@@ -95,6 +95,7 @@ export interface BoardState {
   isLoaded: boolean;
   theme: 'light' | 'dark';
   selectedIds: string[];
+  clipboardPostIts: PostIt[];
   geminiApiKey: string | null;
   
   // History for undo/redo (scoped to current board)
@@ -149,6 +150,11 @@ export interface BoardState {
   setConnections: (connections: Connection[]) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   setSelectedIds: (ids: string[]) => void;
+  selectAllPostIts: () => void;
+  
+  copyPostIts: (ids: string[]) => void;
+  cutPostIts: (ids: string[]) => void;
+  pastePostIts: (x: number, y: number) => void;
   
   mergePostIts: (ids: string[]) => void;
   switchMergedPostIt: (id: string, direction: 'prev' | 'next') => void;
@@ -193,6 +199,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   isLoaded: false,
   theme: 'light',
   selectedIds: [],
+  clipboardPostIts: [],
   geminiApiKey: null,
 
   createBoard: (name, description = '', groupId) => {
@@ -745,6 +752,58 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 
   setSelectedIds: (ids) => {
     set({ selectedIds: ids });
+  },
+
+  selectAllPostIts: () => {
+    const { currentBoardId, postIts } = get();
+    if (!currentBoardId) return;
+    const ids = postIts.filter(p => p.boardId === currentBoardId).map(p => p.id);
+    set({ selectedIds: ids });
+  },
+
+  copyPostIts: (ids) => {
+    const { postIts } = get();
+    const toCopy = postIts.filter(p => ids.includes(p.id));
+    set({ clipboardPostIts: toCopy });
+  },
+
+  cutPostIts: (ids) => {
+    const { postIts, saveHistory, currentBoardId } = get();
+    if (!currentBoardId) return;
+    saveHistory();
+    const toCopy = postIts.filter(p => ids.includes(p.id));
+    const remaining = postIts.filter(p => !ids.includes(p.id));
+    set({ 
+      clipboardPostIts: toCopy,
+      postIts: remaining,
+      selectedIds: []
+    });
+    saveStateToStorage({ ...get(), postIts: remaining });
+  },
+
+  pastePostIts: (x, y) => {
+    const { currentBoardId, clipboardPostIts, postIts, saveHistory } = get();
+    if (!currentBoardId || clipboardPostIts.length === 0) return;
+    saveHistory();
+    
+    // Find bounds of clipboard items to paste relative to (x, y)
+    const minX = Math.min(...clipboardPostIts.map(p => p.x));
+    const minY = Math.min(...clipboardPostIts.map(p => p.y));
+    
+    const newPostIts = clipboardPostIts.map(p => ({
+      ...p,
+      id: uuidv4(),
+      boardId: currentBoardId,
+      x: p.x - minX + x,
+      y: p.y - minY + y,
+    }));
+    
+    const newState = { 
+      postIts: [...postIts, ...newPostIts],
+      selectedIds: newPostIts.map(p => p.id)
+    };
+    set(newState);
+    saveStateToStorage({ ...get(), ...newState });
   },
 
   mergePostIts: (ids) => {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
-import { Stage, Layer, Line, Arrow, Group, Rect, Text, Transformer, Circle, Image as KonvaImage } from 'react-konva';
+import { Stage, Layer, Line, Arrow, Group, Rect, Text, Transformer, Circle, Image as KonvaImage, Label, Tag } from 'react-konva';
 import { useBoardStore, PostIt, Connection, DrawingLine } from '@/store/useBoardStore';
 import { v4 as uuidv4 } from 'uuid';
 import Konva from 'konva';
@@ -12,6 +12,7 @@ import { File, Trash2, Edit2, Plus, X, Check } from 'lucide-react';
 
 interface BoardViewProps {
   tool: 'board' | 'postit' | 'draw' | 'erase' | 'connect';
+  setTool: (tool: 'board' | 'postit' | 'draw' | 'erase' | 'connect') => void;
   drawingColor: string;
   drawingThickness: number;
   postItColor: string;
@@ -153,7 +154,7 @@ const getConvexHull = (points: {x: number, y: number}[]) => {
   return lower.concat(upper);
 };
 
-export default function BoardView({ tool, drawingColor, drawingThickness, postItColor }: BoardViewProps) {
+export default function BoardView({ tool, setTool, drawingColor, drawingThickness, postItColor }: BoardViewProps) {
   const { 
     currentBoardId, 
     boards,
@@ -168,6 +169,8 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
     addConnection,
     updateConnection,
     deleteConnection,
+    undo,
+    redo,
     saveHistory,
     deletePostIt,
     deletePostIts,
@@ -186,7 +189,11 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
     theme,
     selectedIds,
     setSelectedIds,
-    updatePostIts
+    updatePostIts,
+    selectAllPostIts,
+    copyPostIts,
+    cutPostIts,
+    pastePostIts
   } = useBoardStore();
 
   const stageRef = useRef<Konva.Stage>(null);
@@ -222,6 +229,9 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
   const [uploadingPostItId, setUploadingPostItId] = useState<string | null>(null);
   const [isLinkBoardDialogOpen, setIsLinkBoardDialogOpen] = useState(false);
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
+  const [isConnectionTextDialogOpen, setIsConnectionTextDialogOpen] = useState(false);
+  const [connectionTextValue, setConnectionTextValue] = useState('');
+  const [connectionTextObj, setConnectionTextObj] = useState<Connection | null>(null);
   const [isMergeManagementOpen, setIsMergeManagementOpen] = useState(false);
   const [editingMergedIndex, setEditingMergedIndex] = useState<number | null>(null);
   const [editingMergedData, setEditingMergedData] = useState<{title: string, text: string, color: string} | null>(null);
@@ -231,6 +241,7 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
   // Selection Rect state
   const [selectionRect, setSelectionRect] = useState({ visible: false, startX: 0, startY: 0, endX: 0, endY: 0 });
   const [editingConnection, setEditingConnection] = useState<string | null>(null);
+  const [beforeCtrlTool, setBeforeCtrlTool] = useState<'board' | 'postit' | 'draw' | 'erase' | 'connect' | null>(null);
 
   const currentPostIts = postIts.filter(p => p.boardId === currentBoardId);
   const currentPostItGroups = useBoardStore(state => state.postItGroups).filter(g => g.boardId === currentBoardId);
@@ -261,21 +272,211 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
     }
   }, [selectedIds]);
 
-  // Handle keyboard delete
+  // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if typing in an input or textarea
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0 && !editingPostIt) {
-        selectedIds.forEach(id => deletePostIt(id));
+
+      const isCtrl = e.ctrlKey || e.metaKey;
+
+      // Escape key to reset state
+      if (e.key === 'Escape') {
         setSelectedIds([]);
+        setConnectingFrom(null);
+        setTempConnectionEnd(null);
+        setEditingPostIt(null);
+        setEditingConnection(null);
+        return;
+      }
+
+      // Delete/Backspace
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0 && !editingPostIt) {
+        deletePostIts(selectedIds);
+        setSelectedIds([]);
+        return;
+      }
+
+      // Ctrl based shortcuts
+      if (isCtrl) {
+        if (e.key === 'a' || e.key === 'A') {
+          e.preventDefault();
+          selectAllPostIts();
+          return;
+        }
+        if (e.key === 'z' || e.key === 'Z') {
+          e.preventDefault();
+          undo();
+          return;
+        }
+        if (e.key === 'y' || e.key === 'Y') {
+          e.preventDefault();
+          redo();
+          return;
+        }
+        if (e.key === 'c' || e.key === 'C') {
+          if (selectedIds.length > 0) {
+            e.preventDefault();
+            copyPostIts(selectedIds);
+          }
+          return;
+        }
+        if (e.key === 'x' || e.key === 'X') {
+          if (selectedIds.length > 0) {
+            e.preventDefault();
+            cutPostIts(selectedIds);
+          }
+          return;
+        }
+        if (e.key === 'v' || e.key === 'V') {
+          e.preventDefault();
+          const stage = stageRef.current;
+          if (stage) {
+            const pointerPos = stage.getRelativePointerPosition();
+            if (pointerPos) {
+              pastePostIts(pointerPos.x, pointerPos.y);
+            } else {
+              // Paste in center of visible stage if pointer not found
+              const stageX = -stage.x() / stage.scaleX();
+              const stageY = -stage.y() / stage.scaleY();
+              pastePostIts(stageX + stage.width() / 2 / stage.scaleX(), stageY + stage.height() / 2 / stage.scaleY());
+            }
+          }
+          return;
+        }
+        if (e.key === '.') {
+          e.preventDefault();
+          if (selectedIds.length > 0) {
+            setTool('connect');
+            setConnectingFrom(selectedIds[0]);
+          }
+          return;
+        }
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (selectedIds.length > 0) sendToBackMany(selectedIds);
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (selectedIds.length > 0) bringToFrontMany(selectedIds);
+          return;
+        }
+      }
+
+      // Arrow keys for movement, resize, and panning
+      const isShift = e.shiftKey;
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        // If holding Ctrl or tool is board, it's "Board Mode"
+        if (isCtrl || tool === 'board') {
+          e.preventDefault();
+          const panStep = 20;
+          setPosition(prev => {
+            let newX = prev.x;
+            let newY = prev.y;
+            if (e.key === 'ArrowUp') newY += panStep;
+            if (e.key === 'ArrowDown') newY -= panStep;
+            if (e.key === 'ArrowLeft') newX += panStep;
+            if (e.key === 'ArrowRight') newX -= panStep;
+            return { x: newX, y: newY };
+          });
+          return;
+        }
+
+        // Normal move or resize (when NOT in board mode and NOT holding ctrl for board mode)
+        if (selectedIds.length > 0) {
+          e.preventDefault();
+          saveHistory();
+          const moveStep = 5;
+          const resizeStep = 5;
+
+          currentPostIts.filter(p => selectedIds.includes(p.id)).forEach(p => {
+            if (isShift) {
+              // Resize
+              let newWidth = p.width;
+              let newHeight = p.height;
+              if (e.key === 'ArrowRight') newWidth += resizeStep;
+              if (e.key === 'ArrowLeft') newWidth = Math.max(50, newWidth - resizeStep);
+              if (e.key === 'ArrowDown') newHeight += resizeStep;
+              if (e.key === 'ArrowUp') newHeight = Math.max(50, newHeight - resizeStep);
+              updatePostIt(p.id, { width: newWidth, height: newHeight });
+            } else {
+              // Move
+              let newX = p.x;
+              let newY = p.y;
+              if (e.key === 'ArrowRight') newX += moveStep;
+              if (e.key === 'ArrowLeft') newX -= moveStep;
+              if (e.key === 'ArrowDown') newY += moveStep;
+              if (e.key === 'ArrowUp') newY -= moveStep;
+              updatePostIt(p.id, { x: newX, y: newY });
+            }
+          });
+          return;
+        } 
+        
+        if (isShift) {
+          // Zoom in/out when nothing is selected
+          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            const scaleBy = 1.1;
+            const stage = stageRef.current;
+            if (!stage) return;
+
+            const oldScale = stage.scaleX();
+            const center = {
+              x: stage.width() / 2,
+              y: stage.height() / 2,
+            };
+
+            const relatedPointTo = {
+              x: (center.x - stage.x()) / oldScale,
+              y: (center.y - stage.y()) / oldScale,
+            };
+
+            let newScale = e.key === 'ArrowDown' ? oldScale / scaleBy : oldScale * scaleBy;
+            newScale = Math.max(0.1, Math.min(newScale, 5));
+
+            setScale(newScale);
+            setPosition({
+              x: center.x - relatedPointTo.x * newScale,
+              y: center.y - relatedPointTo.y * newScale,
+            });
+          }
+        }
+      }
+
+      // Ctrl key hold functionality: force board mode
+      if (e.key === 'Control' || e.key === 'Meta') {
+        if (tool !== 'board' && !beforeCtrlTool) {
+          setBeforeCtrlTool(tool);
+          setTool('board');
+        }
       }
     };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        if (beforeCtrlTool) {
+          setTool(beforeCtrlTool);
+          setBeforeCtrlTool(null);
+        }
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIds, editingPostIt, deletePostIt, setSelectedIds]);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [
+    selectedIds, editingPostIt, deletePostIts, setSelectedIds, 
+    selectAllPostIts, undo, redo, copyPostIts, cutPostIts, pastePostIts, 
+    setTool, tool, beforeCtrlTool, currentPostIts, updatePostIt, saveHistory,
+    bringToFrontMany, sendToBackMany
+  ]);
 
   useLayoutEffect(() => {
     const checkSize = () => {
@@ -1069,14 +1270,28 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
                   />
                 )}
                 {conn.text && (
-                  <Text
-                    text={conn.text}
-                    x={conn.controlPoint ? conn.controlPoint.x - 20 : startPoint.x + dx / 2 - 20}
-                    y={conn.controlPoint ? conn.controlPoint.y - 10 : startPoint.y + dy / 2 - 10}
-                    fill={getInvertedColor(conn.color, theme)}
-                    fontSize={14}
-                    background={theme === 'dark' ? '#000000' : 'white'}
-                  />
+                  <Label
+                    x={conn.controlPoint ? conn.controlPoint.x : startPoint.x + dx / 2}
+                    y={conn.controlPoint ? conn.controlPoint.y : startPoint.y + dy / 2}
+                    offsetX={(conn.text.length * 14 * 0.6 + 12) / 2}
+                    offsetY={(14 + 12) / 2}
+                    opacity={1}
+                  >
+                    <Tag
+                      fill="white"
+                      stroke={conn.color}
+                      strokeWidth={1}
+                      cornerRadius={15}
+                    />
+                    <Text
+                      text={conn.text}
+                      fill="#333333"
+                      fontSize={14}
+                      padding={6}
+                      align="center"
+                      verticalAlign="middle"
+                    />
+                  </Label>
                 )}
                 {/* Control Point Handle */}
                 {conn.controlPoint && editingConnection === conn.id && (
@@ -1528,10 +1743,9 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
           className={`fixed border shadow-lg rounded-md py-1 z-50 text-sm min-w-[180px] flex flex-col ${theme === 'dark' ? 'bg-[#000000] border-[#ff00ff] text-[#00f3ff] shadow-[0_0_20px_rgba(255,0,255,0.3)]' : 'bg-white border-gray-200 text-gray-900'}`}
         >
           <button className={`px-4 py-3 text-left ${theme === 'dark' ? 'hover:bg-[#00f3ff]/10' : 'hover:bg-gray-100'}`} onClick={() => {
-            const text = prompt('コメントを入力してください', connectionContextMenu.connection?.text || '');
-            if (text !== null) {
-              updateConnection(connectionContextMenu.connection!.id, { text });
-            }
+            setConnectionTextObj(connectionContextMenu.connection!);
+            setConnectionTextValue(connectionContextMenu.connection?.text || '');
+            setIsConnectionTextDialogOpen(true);
             setConnectionContextMenu({...connectionContextMenu, visible: false});
           }}>コメントを追加</button>
           
@@ -1685,6 +1899,33 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
           }}>グループを解除</button>
         </div>
       )}
+
+      {/* Connection Text Dialog */}
+      <Dialog open={isConnectionTextDialogOpen} onOpenChange={setIsConnectionTextDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>コメントを追加</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <Input 
+              value={connectionTextValue} 
+              onChange={e => setConnectionTextValue(e.target.value)} 
+              placeholder="連結線のコメント" 
+              autoFocus 
+              onKeyDown={e => {
+                if (e.key === 'Enter' && connectionTextObj) {
+                  updateConnection(connectionTextObj.id, { text: connectionTextValue });
+                  setIsConnectionTextDialogOpen(false);
+                }
+              }}
+            />
+            <Button className="w-full" onClick={() => {
+              if (connectionTextObj) {
+                updateConnection(connectionTextObj.id, { text: connectionTextValue });
+              }
+              setIsConnectionTextDialogOpen(false);
+            }}>保存</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Group Dialog */}
       <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>

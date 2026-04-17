@@ -267,7 +267,7 @@ export default function Toolbar({
 
         <Tooltip>
           <TooltipTrigger render={<Button variant={isAIVisible ? 'secondary' : 'ghost'} size="icon" className={`rounded-full ${theme === 'dark' && isAIVisible ? 'bg-[#ff00ff]/20 text-[#ff00ff]' : theme === 'dark' ? 'text-[#00f3ff] hover:bg-[#00f3ff]/10' : ''}`} onClick={() => setIsAIVisible(!isAIVisible)} />}>
-            <MessageSquare className="w-4 h-4" />
+            <Sparkles className="w-4 h-4" />
           </TooltipTrigger>
           <TooltipContent>AIチャット</TooltipContent>
         </Tooltip>

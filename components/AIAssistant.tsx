@@ -65,6 +65,12 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
     if (!currentBoardId) return;
     
     setIsLoading(true);
+    setInput('');
+    setSelectedImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+
     addChatMessage(currentBoardId, {
       role: 'user',
       content: prompt,
@@ -85,23 +91,37 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
       const ai = new GoogleGenAI({ apiKey });
       
       const currentBoardData = {
-        postIts: postIts.filter(p => p.boardId === currentBoardId).map(p => ({
+        postIts: postIts.filter(p => p.boardId === currentBoardId).slice(0, 100).map(p => ({
           id: p.id,
-          text: p.text,
-          title: p.title,
+          title: (p.title || '').slice(0, 50),
+          text: (p.text || '').slice(0, 500),
           x: p.x,
           y: p.y,
+          width: p.width,
+          height: p.height,
           color: p.color
         })),
-        connections: connections.filter(c => c.boardId === currentBoardId).map(c => ({
+        connections: connections.filter(c => c.boardId === currentBoardId).slice(0, 150).map(c => ({
           fromId: c.fromId,
-          toId: c.toId
+          toId: c.toId,
+          text: (c.text || '').slice(0, 50),
+          startShape: c.startShape,
+          endShape: c.endShape,
+          isDashed: c.isDashed
         }))
       };
 
       const systemInstruction = `
         あなたはマインドマップとワークフローの専門家です。
-        ユーザーの指示に基づき、ボード上の付箋（postIts）と連結線（connections）を操作します。
+        ユーザーの指示に基づき、ボード上の付箋（postIts）と連結線（connections）を広大なキャンバス上に構成します。
+        
+        【重要：レイアウト解像度の向上】
+        要素が重ならないよう、付箋は十分に幅を持たせ（例: 幅250〜300、高さ150〜200）、付箋同士の間隔を上下左右に200〜300ピクセル以上空けて、広々とした美しく見やすい高解像度なレイアウトを計算してx, y座標に反映してください。
+        
+        【重要：レスポンス制限】
+        ボードの規模が大きい場合でも、一度の回答で扱う付箋の数は最大30個程度に留めてください。
+        全てのデータを一度に返そうとすると、データ量が多すぎて途中で途切れてエラー（JSON不完全）になります。
+        変更が必要な部分に絞って "update" アクションを利用してください。
         
         操作は以下のJSON形式で返してください：
         {
@@ -110,10 +130,27 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
           "action": {
             "type": "create" | "update" | "none",
             "postIts": [
-              { "id": "string", "text": "string", "x": number, "y": number, "color": "string" }
+              { 
+                "id": "string", 
+                "title": "string (オプション: タイトルが必要な場合)", 
+                "text": "string (本文)", 
+                "x": number, 
+                "y": number, 
+                "width": number (推奨: 250~300), 
+                "height": number (推奨: 150~200), 
+                "color": "string" 
+              }
             ],
             "connections": [
-              { "fromId": "string", "toId": "string" }
+              { 
+                "fromId": "string", 
+                "toId": "string",
+                "text": "string (オプション: 矢印上のコメント・説明)",
+                "startShape": "none" | "arrow" | "dot",
+                "endShape": "none" | "arrow" | "dot",
+                "isDashed": boolean (点線か),
+                "controlPointOffset": { "x": number, "y": number } // オプション: 連結線を湾曲させるための中心からのピクセルオフセット量（大きく曲げるなら {x: 0, y: -200} など）
+              }
             ]
           }
         }
@@ -123,11 +160,10 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
         - 付箋の色(color)は、以下のいずれかのみを使用してください：
           #fef08a (黄), #bbf7d0 (緑), #bfdbfe (青), #fbcfe8 (桃), #ddd6fe (紫), #fed7aa (橙)
         
-        【重要：連結線（connections）のルール】
-        1. マインドマップやフロー図を作成する場合、付箋どうしの関係性を表すために必ず "connections" を定義してください。
-        2. "connections" の fromId と toId には、"postIts" 配列内で定義した "id" を正確に使用してください。
-        3. 新しい付箋を作成する場合、id は "new-1", "new-2" のような一時的なIDを使用し、connections でもその同じIDを参照してください。
-        4. 親から子へ、または工程の順序に従って、論理的な繋がりをすべて網羅してください。
+        【連結線（connections）のルール】
+        1. "connections" の fromId と toId には、"postIts" 配列で定義した "id" を使用してください。
+        2. 新しい付箋を作成する場合、id は "new-1" など一時的なIDを使用してください。
+        3. 順序や関連性を示す場合は必要に応じて \`startShape\`, \`endShape\` (デフォルトは 'none'と'arrow') をカスタマイズし、\`isDashed\` や コメント用 \`text\` も活用して表現力を高めてください。
         
         日本語で回答してください。
       `;
@@ -149,6 +185,7 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
         config: {
           systemInstruction,
           responseMimeType: "application/json",
+          maxOutputTokens: 8192,
           responseSchema: {
             type: Type.OBJECT,
             properties: {
@@ -164,12 +201,15 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
                       type: Type.OBJECT,
                       properties: {
                         id: { type: Type.STRING },
+                        title: { type: Type.STRING },
                         text: { type: Type.STRING },
                         x: { type: Type.NUMBER },
                         y: { type: Type.NUMBER },
+                        width: { type: Type.NUMBER },
+                        height: { type: Type.NUMBER },
                         color: { type: Type.STRING }
                       },
-                      required: ["id", "text", "x", "y", "color"]
+                      required: ["id", "text", "x", "y", "color", "width", "height"]
                     }
                   },
                   connections: {
@@ -178,7 +218,16 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
                       type: Type.OBJECT,
                       properties: {
                         fromId: { type: Type.STRING },
-                        toId: { type: Type.STRING }
+                        toId: { type: Type.STRING },
+                        text: { type: Type.STRING },
+                        startShape: { type: Type.STRING, enum: ["none", "arrow", "dot"] },
+                        endShape: { type: Type.STRING, enum: ["none", "arrow", "dot"] },
+                        isDashed: { type: Type.BOOLEAN },
+                        controlPointOffset: { 
+                          type: Type.OBJECT, 
+                          properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } },
+                          description: "Offset from the midpoint of the connection to curve the line"
+                        }
                       },
                       required: ["fromId", "toId"]
                     }
@@ -212,12 +261,12 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
           return {
             id: newId,
             boardId: currentBoardId,
-            title: '',
+            title: p.title || '',
             text: p.text,
             x: p.x,
             y: p.y,
-            width: 180,
-            height: 150,
+            width: p.width || 250,
+            height: p.height || 180,
             rotation: 0,
             color: p.color || '#fef08a',
             tags: [],
@@ -229,14 +278,32 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
           const fromId = idMap[c.fromId] || c.fromId;
           const toId = idMap[c.toId] || c.toId;
           
+          let controlPoint = undefined;
+          if (c.controlPointOffset && c.controlPointOffset.x !== undefined && c.controlPointOffset.y !== undefined) {
+             const fromNode = newPostIts.find((p: any) => p.id === fromId) || postIts.find(p => p.id === fromId);
+             const toNode = newPostIts.find((p: any) => p.id === toId) || postIts.find(p => p.id === toId);
+             if (fromNode && toNode) {
+               // Calculate the midpoint
+               const midX = (fromNode.x + fromNode.width / 2 + toNode.x + toNode.width / 2) / 2;
+               const midY = (fromNode.y + fromNode.height / 2 + toNode.y + toNode.height / 2) / 2;
+               controlPoint = {
+                 x: midX + c.controlPointOffset.x,
+                 y: midY + c.controlPointOffset.y
+               };
+             }
+          }
+
           return {
             id: uuidv4(),
             boardId: currentBoardId,
             fromId,
             toId,
+            text: c.text || undefined,
             color: theme === 'dark' ? '#ffffff' : '#000000',
-            startShape: 'none',
-            endShape: 'arrow'
+            startShape: c.startShape || 'none',
+            endShape: c.endShape || 'arrow',
+            isDashed: c.isDashed || false,
+            controlPoint
           };
         }).filter((c: any) => c.fromId && c.toId);
 
@@ -257,9 +324,15 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
       
     } catch (error) {
       console.error("AI Action failed", error);
+      let errorMessage = "申し訳ありません。処理中にエラーが発生しました。";
+      
+      if (error instanceof SyntaxError && error.message.includes("JSON")) {
+        errorMessage = "出力データが大きすぎたため、AIの回答が途中で途切れました。一回あたりの指示を細かく分けるか、規模を縮小して試してください。";
+      }
+      
       addChatMessage(currentBoardId, {
         role: 'model',
-        content: "申し訳ありません。処理中にエラーが発生しました。",
+        content: errorMessage,
         type: 'text'
       });
     } finally {
