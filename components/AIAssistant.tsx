@@ -73,7 +73,16 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
     });
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
+      const apiKey = useBoardStore.getState().geminiApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+      if (!apiKey) {
+        addChatMessage(currentBoardId, {
+          role: 'model',
+          content: 'エラー: Gemini APIキーが設定されていません。設定から追加してください。'
+        });
+        setIsLoading(false);
+        return;
+      }
+      const ai = new GoogleGenAI({ apiKey });
       
       const currentBoardData = {
         postIts: postIts.filter(p => p.boardId === currentBoardId).map(p => ({

@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export default function Sidebar({ onClose }: { onClose?: () => void }) {
-  const { boards, boardGroups, currentBoardId, setCurrentBoard, createBoard, deleteBoard, updateBoard, copyBoard, theme, setTheme, postIts } = useBoardStore();
+  const { boards, boardGroups, currentBoardId, setCurrentBoard, createBoard, deleteBoard, updateBoard, copyBoard, theme, setTheme, postIts, geminiApiKey, setGeminiApiKey } = useBoardStore();
   const [isNewBoardOpen, setIsNewBoardOpen] = useState(false);
   const [newBoardName, setNewBoardName] = useState('');
   const [newBoardDesc, setNewBoardDesc] = useState('');
@@ -32,6 +32,12 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<'タイトル' | '作成日' | '更新日'>('更新日');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const [localApiKey, setLocalApiKey] = useState(geminiApiKey || '');
+
+  React.useEffect(() => {
+    setLocalApiKey(geminiApiKey || '');
+  }, [geminiApiKey]);
 
   const handleCreateBoard = () => {
     if (newBoardName.trim()) {
@@ -384,6 +390,31 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
                 >
                   {theme === 'light' ? <><Moon className="w-4 h-4 mr-2" /> ダーク</> : <><Sun className="w-4 h-4 mr-2" /> ライト</>}
                 </Button>
+              </div>
+
+              <div className="space-y-2 border-t pt-4 border-gray-200 dark:border-gray-800">
+                <div className="space-y-0.5 mb-3">
+                  <Label>Gemini API キー</Label>
+                  <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>AIチャット機能を利用するためのAPIキーを入力してください</p>
+                </div>
+                <div className="flex gap-2">
+                  <Input 
+                    type="password" 
+                    value={localApiKey} 
+                    onChange={(e) => setLocalApiKey(e.target.value)} 
+                    placeholder="AIzaSy..." 
+                    className={`flex-1 ${theme === 'dark' ? 'bg-[#2a2a2c] border-gray-700 text-white' : ''}`}
+                  />
+                  <Button 
+                    onClick={() => setGeminiApiKey(localApiKey.trim() || null)}
+                    className={theme === 'dark' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
+                  >
+                    保存
+                  </Button>
+                </div>
+                <p className={`text-[10px] ${theme === 'dark' ? 'text-[#00f3ff]/70' : 'text-blue-500'}`}>
+                  ※ 保存されたAPIキーはブラウザにのみ保存されます
+                </p>
               </div>
             </div>
           </DialogContent>

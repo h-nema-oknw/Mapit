@@ -95,6 +95,7 @@ export interface BoardState {
   isLoaded: boolean;
   theme: 'light' | 'dark';
   selectedIds: string[];
+  geminiApiKey: string | null;
   
   // History for undo/redo (scoped to current board)
   history: {
@@ -157,6 +158,7 @@ export interface BoardState {
 
   addChatMessage: (boardId: string, message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   clearChatHistory: (boardId: string) => void;
+  setGeminiApiKey: (key: string | null) => void;
 }
 
 const saveStateToStorage = async (state: any) => {
@@ -169,6 +171,7 @@ const saveStateToStorage = async (state: any) => {
       connections: state.connections,
       drawings: state.drawings,
       chatHistory: state.chatHistory,
+      geminiApiKey: state.geminiApiKey,
     });
     await idbSet('mindmap-state', serializedState);
   } catch (e) {
@@ -190,6 +193,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   isLoaded: false,
   theme: 'light',
   selectedIds: [],
+  geminiApiKey: null,
 
   createBoard: (name, description = '', groupId) => {
     const id = uuidv4();
@@ -1004,6 +1008,14 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       return newState;
     });
   },
+
+  setGeminiApiKey: (key) => {
+    set((state) => {
+      const newState = { geminiApiKey: key };
+      saveStateToStorage({ ...state, ...newState });
+      return newState;
+    });
+  },
 }));
 
 // Load initial state
@@ -1043,6 +1055,7 @@ if (typeof window !== 'undefined') {
           connections: parsed.connections || [],
           drawings: parsed.drawings || [],
           chatHistory: parsed.chatHistory || {},
+          geminiApiKey: parsed.geminiApiKey || null,
           currentBoardId,
           isLoaded: true,
           theme,
