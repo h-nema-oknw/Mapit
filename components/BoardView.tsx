@@ -179,6 +179,7 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
     unmergePostIt,
     updateMergedPostIt,
     deleteMergedPostIt,
+    setConnections,
     theme,
     selectedIds,
     setSelectedIds
@@ -636,6 +637,20 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
         return p;
       });
       setPostIts(newPostIts);
+
+      const newConnections = connections.map(c => {
+        if (c.controlPoint && selectedIds.includes(c.fromId) && selectedIds.includes(c.toId)) {
+          return {
+            ...c,
+            controlPoint: {
+              x: c.controlPoint.x + dx,
+              y: c.controlPoint.y + dy
+            }
+          };
+        }
+        return c;
+      });
+      setConnections(newConnections);
     } else {
       updatePostIt(id, {
         x: e.target.x(),
@@ -661,6 +676,17 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
               node.x(p.x + dx);
               node.y(p.y + dy);
             }
+          }
+        }
+      });
+
+      // Visually sync curved connection handles
+      connections.forEach(c => {
+        if (c.controlPoint && selectedIds.includes(c.fromId) && selectedIds.includes(c.toId)) {
+          const handle = layerRef.current?.findOne(`#handle-${c.id}`);
+          if (handle) {
+            handle.x(c.controlPoint.x + dx);
+            handle.y(c.controlPoint.y + dy);
           }
         }
       });
@@ -1051,6 +1077,7 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
                 {/* Control Point Handle */}
                 {conn.controlPoint && editingConnection === conn.id && (
                   <Circle
+                    id={`handle-${conn.id}`}
                     x={conn.controlPoint.x}
                     y={conn.controlPoint.y}
                     radius={6}
@@ -1358,46 +1385,57 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
       )}
 
       {/* Context Menu Overlay */}
-      {contextMenu.visible && contextMenu.postIt && (
+      {contextMenu.visible && contextMenu.postIt && (() => {
+        const isMultiSelected = selectedIds.length > 1 && selectedIds.includes(contextMenu.postIt.id);
+        return (
         <div 
           style={{ top: contextMenu.y, left: contextMenu.x }} 
           className={`fixed border shadow-lg rounded-md py-1 z-50 text-sm min-w-[180px] flex flex-col ${theme === 'dark' ? 'bg-[#000000] border-[#ff00ff] text-[#00f3ff] shadow-[0_0_20px_rgba(255,0,255,0.3)]' : 'bg-white border-gray-200 text-gray-900'}`}
         >
-          {selectedIds.length > 1 && selectedIds.includes(contextMenu.postIt.id) && (
+          {(!isMultiSelected) && (
             <>
-              <button className={`px-4 py-3 text-left font-semibold border-b mb-1 pb-2 ${theme === 'dark' ? 'hover:bg-[#ff00ff]/10 text-[#ff00ff] border-[#ff00ff]/30' : 'hover:bg-gray-100 text-blue-600 border-gray-100'}`} onClick={() => {
-                setIsGroupDialogOpen(true);
+              <button className={`px-4 py-3 text-left ${theme === 'dark' ? 'hover:bg-[#00f3ff]/10' : 'hover:bg-gray-100'}`} onClick={() => {
+                fileInputRef.current?.click();
+                setUploadingPostItId(contextMenu.postIt!.id);
                 setContextMenu({...contextMenu, visible: false});
-              }}>選択した付箋をグループ化</button>
-              <button className={`px-4 py-3 text-left font-semibold border-b mb-1 pb-2 ${theme === 'dark' ? 'hover:bg-[#ff00ff]/10 text-[#ff00ff] border-[#ff00ff]/30' : 'hover:bg-gray-100 text-blue-600 border-gray-100'}`} onClick={() => {
-                mergePostIts(selectedIds);
+              }}>画像をアップロード</button>
+              
+              <button className={`px-4 py-3 text-left ${theme === 'dark' ? 'hover:bg-[#00f3ff]/10' : 'hover:bg-gray-100'}`} onClick={() => {
+                setIsLinkBoardDialogOpen(true);
                 setContextMenu({...contextMenu, visible: false});
-              }}>選択した付箋を統合</button>
+              }}>ボードと連結</button>
             </>
           )}
 
-          <button className={`px-4 py-3 text-left ${theme === 'dark' ? 'hover:bg-[#00f3ff]/10' : 'hover:bg-gray-100'}`} onClick={() => {
-            fileInputRef.current?.click();
-            setUploadingPostItId(contextMenu.postIt!.id);
-            setContextMenu({...contextMenu, visible: false});
-          }}>画像をアップロード</button>
-          
-          <button className={`px-4 py-3 text-left ${theme === 'dark' ? 'hover:bg-[#00f3ff]/10' : 'hover:bg-gray-100'}`} onClick={() => {
-            setIsLinkBoardDialogOpen(true);
-            setContextMenu({...contextMenu, visible: false});
-          }}>ボードと連結</button>
-          
           <button className={`px-4 py-3 text-left ${theme === 'dark' ? 'hover:bg-[#00f3ff]/10' : 'hover:bg-gray-100'}`} onClick={() => {
             setIsTagDialogOpen(true);
             setContextMenu({...contextMenu, visible: false});
           }}>タグの管理</button>
           
           <button className={`px-4 py-3 text-left ${theme === 'dark' ? 'hover:bg-[#00f3ff]/10' : 'hover:bg-gray-100'}`} onClick={() => {
-            setConnectingFrom(contextMenu.postIt!.id);
-            setContextMenu({...contextMenu, visible: false});
+            if (isMultiSelected) {
+              selectedIds.forEach(id => {
+                if (id !== contextMenu.postIt!.id) {
+                  const exists = connections.some(c => (c.fromId === contextMenu.postIt!.id && c.toId === id) || (c.fromId === id && c.toId === contextMenu.postIt!.id));
+                  if (!exists) {
+                    addConnection({
+                      fromId: contextMenu.postIt!.id,
+                      toId: id,
+                      color: theme === 'dark' ? '#00f3ff' : '#3b82f6',
+                      startShape: 'none',
+                      endShape: 'arrow'
+                    });
+                  }
+                }
+              });
+              setContextMenu({...contextMenu, visible: false});
+            } else {
+              setConnectingFrom(contextMenu.postIt!.id);
+              setContextMenu({...contextMenu, visible: false});
+            }
           }}>連結</button>
 
-          {contextMenu.postIt?.mergedPostItIds && contextMenu.postIt.mergedPostItIds.length > 1 && (
+          {!isMultiSelected && contextMenu.postIt?.mergedPostItIds && contextMenu.postIt.mergedPostItIds.length > 1 && (
             <button className={`px-4 py-3 text-left font-semibold border-t mt-1 ${theme === 'dark' ? 'hover:bg-[#ff00ff]/10 text-[#ff00ff] border-[#ff00ff]/30' : 'hover:bg-gray-100 text-blue-600 border-gray-100'}`} onClick={() => {
               setIsMergeManagementOpen(true);
               setContextMenu({...contextMenu, visible: false});
@@ -1405,12 +1443,20 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
           )}
 
           <button className={`px-4 py-3 text-left border-t mt-1 ${theme === 'dark' ? 'hover:bg-[#00f3ff]/10 border-[#ff00ff]/30' : 'hover:bg-gray-100 border-gray-100'}`} onClick={() => {
-            bringToFront(contextMenu.postIt!.id);
+            if (isMultiSelected) {
+              selectedIds.forEach(id => bringToFront(id));
+            } else {
+              bringToFront(contextMenu.postIt!.id);
+            }
             setContextMenu({...contextMenu, visible: false});
           }}>最前面に表示</button>
 
           <button className={`px-4 py-3 text-left ${theme === 'dark' ? 'hover:bg-[#00f3ff]/10' : 'hover:bg-gray-100'}`} onClick={() => {
-            sendToBack(contextMenu.postIt!.id);
+            if (isMultiSelected) {
+              selectedIds.forEach(id => sendToBack(id));
+            } else {
+              sendToBack(contextMenu.postIt!.id);
+            }
             setContextMenu({...contextMenu, visible: false});
           }}>最背面に表示</button>
           
@@ -1422,7 +1468,11 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
                   ? (contextMenu.postIt?.fontSize === size ? 'bg-[#ff00ff]/20 border-[#ff00ff] text-[#ff00ff]' : 'border-[#00f3ff]/30 text-[#00f3ff]/70 hover:bg-[#00f3ff]/10') 
                   : (contextMenu.postIt?.fontSize === size ? 'bg-blue-50 border-blue-200 text-blue-600' : 'text-gray-600 hover:bg-gray-50')}`}
                 onClick={() => {
-                  updatePostIt(contextMenu.postIt!.id, { fontSize: size });
+                  if (isMultiSelected) {
+                    selectedIds.forEach(id => updatePostIt(id, { fontSize: size }));
+                  } else {
+                    updatePostIt(contextMenu.postIt!.id, { fontSize: size });
+                  }
                   setContextMenu({...contextMenu, visible: false});
                 }}
               >
@@ -1438,7 +1488,11 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
                 className="w-5 h-5 rounded-full cursor-pointer border shadow-sm" 
                 style={{backgroundColor: c}} 
                 onClick={() => { 
-                  updatePostIt(contextMenu.postIt!.id, {color: c}); 
+                  if (isMultiSelected) {
+                    selectedIds.forEach(id => updatePostIt(id, { color: c }));
+                  } else {
+                    updatePostIt(contextMenu.postIt!.id, {color: c}); 
+                  }
                   setContextMenu({...contextMenu, visible: false}); 
                 }} 
               />
@@ -1446,11 +1500,17 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
           </div>
           
           <button className={`px-4 py-3 text-left border-t mt-1 ${theme === 'dark' ? 'hover:bg-red-900/30 text-red-400 border-[#ff00ff]/30' : 'hover:bg-red-50 text-red-600 border-gray-100'}`} onClick={() => { 
-            deletePostIt(contextMenu.postIt!.id); 
+            if (isMultiSelected) {
+              selectedIds.forEach(id => deletePostIt(id));
+              setSelectedIds([]);
+            } else {
+              deletePostIt(contextMenu.postIt!.id); 
+            }
             setContextMenu({...contextMenu, visible: false}); 
           }}>削除</button>
         </div>
-      )}
+        );
+      })()}
 
       {/* Connection Context Menu Overlay */}
       {connectionContextMenu.visible && connectionContextMenu.connection && (
@@ -1535,10 +1595,33 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
           style={{ top: multiSelectContextMenu.y, left: multiSelectContextMenu.x }} 
           className={`fixed border shadow-lg rounded-md py-1 z-50 text-sm min-w-[180px] flex flex-col ${theme === 'dark' ? 'bg-[#000000] border-[#ff00ff] text-[#00f3ff] shadow-[0_0_20px_rgba(255,0,255,0.3)]' : 'bg-white border-gray-200 text-gray-900'}`}
         >
-          <button className={`px-4 py-3 text-left ${theme === 'dark' ? 'hover:bg-[#00f3ff]/10' : 'hover:bg-gray-100'}`} onClick={() => {
+          <button className={`px-4 py-3 text-left font-semibold border-b mb-1 pb-2 ${theme === 'dark' ? 'hover:bg-[#ff00ff]/10 text-[#00f3ff] border-[#ff00ff]/30' : 'hover:bg-gray-100 text-blue-600 border-gray-100'}`} onClick={() => {
+            for (let i = 0; i < selectedIds.length; i++) {
+              for (let j = i + 1; j < selectedIds.length; j++) {
+                const fromId = selectedIds[i];
+                const toId = selectedIds[j];
+                const exists = connections.some(c => (c.fromId === fromId && c.toId === toId) || (c.fromId === toId && c.toId === fromId));
+                if (!exists) {
+                  addConnection({
+                    fromId, toId,
+                    color: theme === 'dark' ? '#00f3ff' : '#3b82f6',
+                    startShape: 'none', endShape: 'arrow'
+                  });
+                }
+              }
+            }
+            setMultiSelectContextMenu({...multiSelectContextMenu, visible: false});
+          }}>選択した付箋を連結</button>
+
+          <button className={`px-4 py-3 text-left font-semibold border-b mb-1 pb-2 ${theme === 'dark' ? 'hover:bg-[#ff00ff]/10 text-[#00f3ff] border-[#ff00ff]/30' : 'hover:bg-gray-100 text-blue-600 border-gray-100'}`} onClick={() => {
             setIsGroupDialogOpen(true);
             setMultiSelectContextMenu({...multiSelectContextMenu, visible: false});
-          }}>グルーピング</button>
+          }}>選択した付箋をグループ化</button>
+
+          <button className={`px-4 py-3 text-left font-semibold ${theme === 'dark' ? 'hover:bg-[#ff00ff]/10 text-[#00f3ff]' : 'hover:bg-gray-100 text-blue-600'}`} onClick={() => {
+            mergePostIts(selectedIds);
+            setMultiSelectContextMenu({...multiSelectContextMenu, visible: false});
+          }}>選択した付箋を統合</button>
         </div>
       )}
 
@@ -1791,7 +1874,11 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
                   {/* Existing Tags List */}
                   {tags.length > 0 && (
                     <div className="space-y-2">
-                      <p className="text-xs font-semibold opacity-70">現在のタグ:</p>
+                      <p className="text-xs font-semibold opacity-70">
+                        {selectedIds.length > 1 && selectedIds.includes(livePostIt?.id || '') 
+                          ? 'この付箋のタグ (追加・削除は選択中すべてに反映):' 
+                          : '現在のタグ:'}
+                      </p>
                       <div className="flex flex-col gap-2 max-h-60 overflow-y-auto p-1">
                         {tags.map((tag, index) => (
                           <div key={index} className={`flex items-center justify-between gap-2 px-3 py-2 rounded-md text-sm ${theme === 'dark' ? 'bg-[#334155] text-[#94a3b8]' : 'bg-gray-100 text-gray-700'}`}>
@@ -1802,13 +1889,55 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
                                   onChange={e => setEditingTagValue(e.target.value)} 
                                   className="h-8 py-0 px-2 text-sm flex-1"
                                   autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && editingTagValue.trim() && livePostIt) {
+                                      const isMultiSelected = selectedIds.length > 1 && selectedIds.includes(livePostIt.id);
+                                      if (isMultiSelected) {
+                                        selectedIds.forEach(id => {
+                                          const p = postIts.find(x => x.id === id);
+                                          if (p && p.tags) {
+                                            const updated = [...p.tags];
+                                            const idxIfPresent = updated.indexOf(tag);
+                                            if (idxIfPresent !== -1) {
+                                              updated[idxIfPresent] = editingTagValue.trim();
+                                              updatePostIt(id, { tags: updated });
+                                            } else if (updated.length < 10) {
+                                              updatePostIt(id, { tags: [...updated, editingTagValue.trim()] });
+                                            }
+                                          }
+                                        });
+                                      } else {
+                                        const updatedTags = [...tags];
+                                        updatedTags[index] = editingTagValue.trim();
+                                        updatePostIt(livePostIt.id, { tags: updatedTags });
+                                      }
+                                      setEditingTagIndex(null);
+                                    }
+                                  }}
                                 />
                                 <div className="flex gap-1">
                                   <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => {
                                     if (editingTagValue.trim() && livePostIt) {
-                                      const updatedTags = [...tags];
-                                      updatedTags[index] = editingTagValue.trim();
-                                      updatePostIt(livePostIt.id, { tags: updatedTags });
+                                      const isMultiSelected = selectedIds.length > 1 && selectedIds.includes(livePostIt.id);
+                                      if (isMultiSelected) {
+                                        selectedIds.forEach(id => {
+                                          const p = postIts.find(x => x.id === id);
+                                          if (p && p.tags) {
+                                            const updated = [...p.tags];
+                                            const idxIfPresent = updated.indexOf(tag);
+                                            if (idxIfPresent !== -1) {
+                                              updated[idxIfPresent] = editingTagValue.trim();
+                                              updatePostIt(id, { tags: updated });
+                                            } else if (updated.length < 10) {
+                                              updatePostIt(id, { tags: [...updated, editingTagValue.trim()] });
+                                            }
+                                          }
+                                        });
+                                      } else {
+                                        const updatedTags = [...tags];
+                                        updatedTags[index] = editingTagValue.trim();
+                                        updatePostIt(livePostIt.id, { tags: updatedTags });
+                                      }
                                     }
                                     setEditingTagIndex(null);
                                   }}>
@@ -1831,8 +1960,18 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
                                   </Button>
                                   <Button size="icon" variant="ghost" className="h-8 w-8 hover:text-red-500" onClick={() => {
                                     if (livePostIt) {
-                                      const updatedTags = tags.filter((_, i) => i !== index);
-                                      updatePostIt(livePostIt.id, { tags: updatedTags });
+                                      const isMultiSelected = selectedIds.length > 1 && selectedIds.includes(livePostIt.id);
+                                      if (isMultiSelected) {
+                                        selectedIds.forEach(id => {
+                                          const p = postIts.find(x => x.id === id);
+                                          if (p && p.tags) {
+                                            updatePostIt(id, { tags: p.tags.filter(t => t !== tag) });
+                                          }
+                                        });
+                                      } else {
+                                        const updatedTags = tags.filter((_, i) => i !== index);
+                                        updatePostIt(livePostIt.id, { tags: updatedTags });
+                                      }
                                     }
                                   }}>
                                     <Trash2 className="h-4 w-4" />
@@ -1862,7 +2001,20 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
                         disabled={tags.length >= 10}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && newTag.trim() && livePostIt && tags.length < 10) {
-                            updatePostIt(livePostIt.id, { tags: [...tags, newTag.trim()] });
+                            const isMultiSelected = selectedIds.length > 1 && selectedIds.includes(livePostIt.id);
+                            if (isMultiSelected) {
+                              selectedIds.forEach(id => {
+                                const p = postIts.find(x => x.id === id);
+                                if (p) {
+                                  const currentTags = p.tags || [];
+                                  if (!currentTags.includes(newTag.trim()) && currentTags.length < 10) {
+                                    updatePostIt(id, { tags: [...currentTags, newTag.trim()] });
+                                  }
+                                }
+                              });
+                            } else {
+                              updatePostIt(livePostIt.id, { tags: [...tags, newTag.trim()] });
+                            }
                             setNewTag('');
                           }
                         }}
@@ -1871,7 +2023,20 @@ export default function BoardView({ tool, drawingColor, drawingThickness, postIt
                         disabled={!newTag.trim() || tags.length >= 10}
                         onClick={() => {
                           if (newTag.trim() && livePostIt && tags.length < 10) {
-                            updatePostIt(livePostIt.id, { tags: [...tags, newTag.trim()] });
+                            const isMultiSelected = selectedIds.length > 1 && selectedIds.includes(livePostIt.id);
+                            if (isMultiSelected) {
+                              selectedIds.forEach(id => {
+                                const p = postIts.find(x => x.id === id);
+                                if (p) {
+                                  const currentTags = p.tags || [];
+                                  if (!currentTags.includes(newTag.trim()) && currentTags.length < 10) {
+                                    updatePostIt(id, { tags: [...currentTags, newTag.trim()] });
+                                  }
+                                }
+                              });
+                            } else {
+                              updatePostIt(livePostIt.id, { tags: [...tags, newTag.trim()] });
+                            }
                             setNewTag('');
                           }
                         }}
