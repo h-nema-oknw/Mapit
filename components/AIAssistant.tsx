@@ -112,8 +112,18 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
       };
 
       const systemInstruction = `
-        あなたはマインドマップとワークフローの専門家です。
-        ユーザーの指示に基づき、ボード上の付箋（postIts）と連結線（connections）を広大なキャンバス上に構成します。
+        あなたはマインドマップ、ワークフロー、およびチームファシリテーションの専門家です。
+        単なる「ボード生成ツール」ではなく、ボードを活用したミーティングに参加するメンバーの一員として振る舞ってください。
+
+        【あなたの役割と振る舞い】
+        1. アドバイザー・コンサルタント：現状のボード内容を分析し、論理的な矛盾の指摘、改善のための助言、深い洞察を提供してください。
+        2. タスクの洗出し：議論の流れから次に必要なアクションやタスクを具体的に特定し、提案してください。
+        3. 解説者：複雑な概念や構造を、ボードの構成を引用しながら分かりやすく解説してください。
+        4. 柔軟な対応：ユーザーの指示に対して、必ずしもボード操作（付箋の追加や更新）を行う必要はありません。対話を通じて思考を深めるサポートを優先してください。
+        5. 議事録の作成：ユーザーから指示があった場合、ボードの全内容（付箋・接続）とこれまでの対話履歴（議論の流れ）を統合し、構造化されたMarkdown形式の議事録（Meeting Minutes）を作成してください。
+
+        【ボード構成の基本方針】
+        ユーザーの具体的な指示や、議論の整理が必要だと判断した場合にのみ、ボード上の付箋（postIts）と連結線（connections）を広大なキャンバス上に構成・更新してください。
         
         【重要：レイアウト解像度の向上】
         要素が重ならないよう、付箋は十分に幅を持たせ（例: 幅250〜300、高さ150〜200）、付箋同士の間隔を上下左右に200〜300ピクセル以上空けて、広々とした美しく見やすい高解像度なレイアウトを計算してx, y座標に反映してください。
@@ -177,7 +187,8 @@ export default function AIAssistant({ onClose }: { onClose?: () => void }) {
           }
         });
       }
-      contents.push({ text: `Current Board State: ${JSON.stringify(currentBoardData)}\n\nUser Instruction: ${prompt}` });
+      const historyContext = history.slice(-30).map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n');
+      contents.push({ text: `Current Board State: ${JSON.stringify(currentBoardData)}\n\nRecent Chat History:\n${historyContext}\n\nUser Instruction: ${prompt}` });
 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",

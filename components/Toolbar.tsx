@@ -6,7 +6,6 @@ import { Hand, MousePointer2, Pen, Eraser, Link as LinkIcon, Undo2, Redo2, Layou
 import { useBoardStore } from '@/store/useBoardStore';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger as DialogTriggerUI, DialogClose } from '@/components/ui/dialog';
-import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
 interface ToolbarProps {
@@ -57,20 +56,48 @@ export default function Toolbar({
   const drawColors = ['#000000', '#ef4444', '#3b82f6', '#22c55e', '#eab308'];
 
   const handleExportPDF = async () => {
-    const container = document.getElementById('canvas-container');
-    if (!container) return;
+    const stage = (window as any).konvaStage;
+    if (!stage) {
+      console.error('Konva stage not found');
+      return;
+    }
     
     try {
-      const canvas = await html2canvas(container, {
-        backgroundColor: theme === 'dark' ? '#000000' : '#f2f2f2'
+      // Get the stage's image data
+      // pixelRatio: 2 for higher resolution
+      const stageDataUrl = stage.toDataURL({ pixelRatio: 2 });
+      
+      // Load image to get dimensions
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = stageDataUrl;
       });
-      const imgData = canvas.toDataURL('image/png');
+
+      // Create a temporary canvas to draw the background and the stage image
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = img.width;
+      tempCanvas.height = img.height;
+      const ctx = tempCanvas.getContext('2d');
+      if (!ctx) return;
+
+      // Fill background
+      ctx.fillStyle = theme === 'dark' ? '#000000' : '#f2f2f2';
+      ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      
+      // Draw the stage image
+      ctx.drawImage(img, 0, 0);
+      
+      const finalImgData = tempCanvas.toDataURL('image/png');
+      
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'px',
-        format: [canvas.width, canvas.height]
+        format: [tempCanvas.width, tempCanvas.height]
       });
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      
+      pdf.addImage(finalImgData, 'PNG', 0, 0, tempCanvas.width, tempCanvas.height);
       const boardName = boards.find(b => b.id === currentBoardId)?.name || 'mindmap';
       pdf.save(`${boardName}.pdf`);
     } catch (error) {

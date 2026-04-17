@@ -553,6 +553,19 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
     };
   }, [currentBoardId]); // Re-run when board changes to ensure containerRef is captured
 
+  // Expose stage to window for export
+  useEffect(() => {
+    const currentStage = stageRef.current;
+    if (currentStage) {
+      (window as any).konvaStage = currentStage;
+    }
+    return () => {
+      if ((window as any).konvaStage === currentStage) {
+        delete (window as any).konvaStage;
+      }
+    };
+  }, []); // Run once on mount to establish ref association, or when manually needed
+
   const handleWheel = (e: any) => {
     e.evt.preventDefault();
     const scaleBy = 1.1;
