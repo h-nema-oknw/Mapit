@@ -227,7 +227,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
         <div className="space-y-1">
           {/* Ungrouped Boards */}
           {sortedBoards.filter(b => !b.groupId).map(board => (
-            <Tooltip key={board.id} delayDuration={3000}>
+            <Tooltip key={board.id}>
               <TooltipTrigger render={
                 <div 
                   draggable
@@ -298,7 +298,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
                 <span className="text-xs font-semibold uppercase tracking-wider">{group.name}</span>
               </div>
               {sortedBoards.filter(b => b.groupId === group.id).map(board => (
-                <Tooltip key={board.id} delayDuration={3000}>
+                <Tooltip key={board.id}>
                   <TooltipTrigger render={
                     <div 
                       draggable

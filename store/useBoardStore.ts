@@ -954,22 +954,24 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         height: master.height,
         rotation: 0,
         tags: [],
+        text: '',
+        color: '#fef08a',
         ...dataToUnmerge
-      };
+      } as PostIt;
 
-      const updatedMaster = {
+      const updatedMaster: PostIt = {
         ...master,
         mergedData: newMergedData,
         mergedPostItIds: newMergedIds,
         activeMergedIndex: 0,
         ...newMergedData[0]
-      };
+      } as PostIt;
 
       // If only one left, remove merged status
       if (newMergedData.length === 1) {
-        delete updatedMaster.mergedData;
-        delete updatedMaster.mergedPostItIds;
-        delete updatedMaster.activeMergedIndex;
+        updatedMaster.mergedData = undefined;
+        updatedMaster.mergedPostItIds = undefined;
+        updatedMaster.activeMergedIndex = undefined;
       }
 
       const newState = {
@@ -1021,18 +1023,18 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       const newMergedData = master.mergedData!.filter((_, i) => i !== mergedIndex);
       const newMergedIds = master.mergedPostItIds!.filter((_, i) => i !== mergedIndex);
       
-      const updatedMaster = {
+      const updatedMaster: PostIt = {
         ...master,
         mergedData: newMergedData,
         mergedPostItIds: newMergedIds,
         activeMergedIndex: 0,
         ...newMergedData[0]
-      };
+      } as PostIt;
 
       if (newMergedData.length === 1) {
-        delete updatedMaster.mergedData;
-        delete updatedMaster.mergedPostItIds;
-        delete updatedMaster.activeMergedIndex;
+        updatedMaster.mergedData = undefined;
+        updatedMaster.mergedPostItIds = undefined;
+        updatedMaster.activeMergedIndex = undefined;
       }
 
       const newState = {

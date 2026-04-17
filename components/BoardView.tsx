@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Stage, Layer, Line, Arrow, Group, Rect, Text, Transformer, Circle, Image as KonvaImage, Label, Tag } from 'react-konva';
-import { useBoardStore, PostIt, Connection, DrawingLine } from '@/store/useBoardStore';
+import { useBoardStore, PostIt, Connection, DrawingLine, PostItGroup } from '@/store/useBoardStore';
 import { v4 as uuidv4 } from 'uuid';
 import Konva from 'konva';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -919,17 +919,6 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
         }
       }
 
-      const metaPressed = e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey;
-      const isSelected = selectedIds.includes(postIt.id);
-
-      if (!metaPressed && !isSelected) {
-        setSelectedIds([postIt.id]);
-      } else if (metaPressed && isSelected) {
-        setSelectedIds(selectedIds.filter((sid) => sid !== postIt.id));
-      } else if (metaPressed && !isSelected) {
-        setSelectedIds([...selectedIds, postIt.id]);
-      }
-    } else if (tool === 'postit') {
       const metaPressed = e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey;
       const isSelected = selectedIds.includes(postIt.id);
 

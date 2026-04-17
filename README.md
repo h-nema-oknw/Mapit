@@ -1,13 +1,11 @@
 # Map!t (Brainstorming & Mind Mapping Board)
 
 ## 概要
-
 直感的な操作で付箋（Post-it）を配置・連結・グループ化し、アイデアを整理することができるホワイトボード／マインドマップツールです。強力なAIアシスタント機能（Generative AI）を備えており、入力された指示や画像をもとに、自動的にマインドマップを生成・拡張することができます。
 
-**👉 [Google AI Studio Build でこのアプリを編集・使用する](https://ai.studio/apps/64df31cc-8e9c-49ed-bd66-f5bd1cae16f4?fullscreenApplet=true)**
+**👉 [Google AI Studio Build でこのアプリを編集・使用する](https://ai.studio/build)**
 
 ## 技術スタック
-
 - **Framework:** Next.js 15 (App Router) / React 19
 - **State Management:** Zustand
 - **Canvas / Drawing:** Konva (`react-konva`)
@@ -17,7 +15,6 @@
 - **AI Integration:** Google Gemini API (`@google/genai` / Gemini 3 Flash Preview)
 
 ## アーキテクチャ
-
 本システムはクライアントサイドを中心に動作するSPA (Single Page Application) アーキテクチャを採用しています。
 バックエンドサーバーによる状態の保存は行わず、全てのデータはブラウザ標準の `IndexedDB` にローカルに保存されます。
 
@@ -29,7 +26,6 @@
   ユーザーからのテキストプロンプトや画像入力を受け取り、最新のキャンバス状態と一緒にGeminiモデルへプロンプトを送信し、画面内の付箋・連結データを動的に変更（アクション生成）します。
 
 ## DB仕様 (データ構造 / IndexedDB)
-
 データはブラウザローカルにある `IndexedDB` トークストア (key: `mindmap-state`) にシリアライズされたJSONオブジェクトとして保存・復元されます。以下は主なデータのスキーマ定義です。
 
 - **Board:** ボード（キャンバス）の情報（ID、名前、説明、作成・更新日時）
@@ -45,7 +41,7 @@
 - **DrawingLine (フリー描画):**
   - ベクター点座標の配列 (`points`)、色、線の太さ、ツールタイプ (`pen` / `eraser`)
   - ボード上への描画ならびに、付箋に紐づくインライン描画情報として管理されます。
-- **ChatHistory:**
+- **ChatHistory:** 
   - AIアシスタントとのやり取り履歴（プロンプト、AIからのメッセージ、画像添付履歴など）
 - **UI Settings / Config:**
   - **geminiApiKey:** AI連携のためのAPIキー（セッション/ローカル保存）
@@ -53,7 +49,6 @@
   - **showSearch:** 検索窓の表示/非表示フラグ（ツールバーのアイコンまたは `Ctrl + F` で切替可）
 
 ## システム仕様
-
 - **キャンバス・全体操作:**
   - いつでも自由に拡張できる無限スクロール
   - マウスホイールによるズームイン/ズームアウト
@@ -87,12 +82,10 @@
 以下の手順で、ローカル環境で本プロジェクトを実行できます。
 
 ### 1. 事前準備
-
 - **Node.js:** v18.17.0 以上（推奨: v20以降）
 - **npm:** Node.jsに付属しているもの
 
 ### 2. 依存関係のインストール
-
 プロジェクトのルートディレクトリで以下のコマンドを実行します。
 
 ```bash
@@ -100,7 +93,6 @@ npm install
 ```
 
 ### 3. 環境変数の設定
-
 AI機能（Gemini）を利用するには、Google AI Studioで作成したAPIキーが必要です。
 プロジェクトのルートに `.env.local` ファイルを作成し、以下の内容を記述してください。
 
@@ -111,7 +103,6 @@ NEXT_PUBLIC_GEMINI_API_KEY=あなたのGemini_APIキー
 ※APIキーは、アプリ起動後にサイドバーの「設定」メニューから直接入力することも可能です。
 
 ### 4. 開発サーバーの起動
-
 ```bash
 npm run dev
 ```
@@ -119,7 +110,6 @@ npm run dev
 起動後、ブラウザで [http://localhost:3000](http://localhost:3000) にアクセスします。
 
 ### 5. ビルドと実行（本番用）
-
 ```bash
 npm run build
 npm run start
