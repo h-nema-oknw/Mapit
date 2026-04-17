@@ -12,9 +12,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Switch } from '@/components/ui/switch';
 
 export default function Sidebar({ onClose }: { onClose?: () => void }) {
-  const { boards, boardGroups, currentBoardId, setCurrentBoard, createBoard, deleteBoard, updateBoard, copyBoard, theme, setTheme, postIts, geminiApiKey, setGeminiApiKey } = useBoardStore();
+  const { boards, boardGroups, currentBoardId, setCurrentBoard, createBoard, deleteBoard, updateBoard, copyBoard, theme, setTheme, postIts, geminiApiKey, setGeminiApiKey, showMinimap, setShowMinimap } = useBoardStore();
   const [isNewBoardOpen, setIsNewBoardOpen] = useState(false);
   const [newBoardName, setNewBoardName] = useState('');
   const [newBoardDesc, setNewBoardDesc] = useState('');
@@ -390,6 +391,17 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
                 >
                   {theme === 'light' ? <><Moon className="w-4 h-4 mr-2" /> ダーク</> : <><Sun className="w-4 h-4 mr-2" /> ライト</>}
                 </Button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>ミニマップ</Label>
+                  <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>画面右下に全体の縮小図を表示します</p>
+                </div>
+                <Switch 
+                  checked={showMinimap} 
+                  onCheckedChange={setShowMinimap} 
+                />
               </div>
 
               <div className="space-y-2 border-t pt-4 border-gray-200 dark:border-gray-800">

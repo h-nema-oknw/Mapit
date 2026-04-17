@@ -127,7 +127,7 @@ export default function Toolbar({
         <div className={`w-px h-6 mx-1 ${theme === 'dark' ? 'bg-[#ff00ff]/30' : 'bg-gray-200'}`} />
 
         <Tooltip>
-          <TooltipTrigger render={<div className="flex items-center gap-1 px-2" />}>
+          <TooltipTrigger render={<div className="flex items-center gap-1 px-2 select-none outline-none" tabIndex={-1} />}>
             {colors.map(c => (
               <div 
                 key={c} 
@@ -178,7 +178,7 @@ export default function Toolbar({
             <Button variant={tool === 'draw' ? 'secondary' : 'ghost'} size="icon" className={`rounded-full ${theme === 'dark' && tool === 'draw' ? 'bg-[#ff00ff]/20 text-[#ff00ff]' : theme === 'dark' ? 'text-[#00f3ff] hover:bg-[#00f3ff]/10' : ''}`} onClick={() => setTool('draw')}>
               <Pen className="w-4 h-4" />
             </Button>
-            <div className="flex gap-1">
+            <div className="flex gap-1 select-none outline-none" tabIndex={-1}>
               {drawColors.map(c => (
                 <button 
                   key={c} 
@@ -203,7 +203,7 @@ export default function Toolbar({
         </Tooltip>
 
         {(tool === 'draw' || tool === 'erase') && (
-          <div className={`flex items-center gap-1 px-2 border-l ml-1 ${theme === 'dark' ? 'border-[#ff00ff]/30' : 'border-gray-200'}`}>
+          <div className={`flex items-center gap-1 px-2 border-l ml-1 select-none outline-none ${theme === 'dark' ? 'border-[#ff00ff]/30' : 'border-gray-200'}`} tabIndex={-1}>
             {(tool === 'erase' ? [5, 10, 20, 40] : [2, 5, 10, 20]).map(t => (
               <button
                 key={t}

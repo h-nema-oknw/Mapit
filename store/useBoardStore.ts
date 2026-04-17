@@ -97,6 +97,7 @@ export interface BoardState {
   selectedIds: string[];
   clipboardPostIts: PostIt[];
   geminiApiKey: string | null;
+  showMinimap: boolean;
   
   // History for undo/redo (scoped to current board)
   history: {
@@ -165,6 +166,7 @@ export interface BoardState {
   addChatMessage: (boardId: string, message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   clearChatHistory: (boardId: string) => void;
   setGeminiApiKey: (key: string | null) => void;
+  setShowMinimap: (show: boolean) => void;
 }
 
 const saveStateToStorage = async (state: any) => {
@@ -178,6 +180,7 @@ const saveStateToStorage = async (state: any) => {
       drawings: state.drawings,
       chatHistory: state.chatHistory,
       geminiApiKey: state.geminiApiKey,
+      showMinimap: state.showMinimap,
     });
     await idbSet('mindmap-state', serializedState);
   } catch (e) {
@@ -201,6 +204,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   selectedIds: [],
   clipboardPostIts: [],
   geminiApiKey: null,
+  showMinimap: true,
 
   createBoard: (name, description = '', groupId) => {
     const id = uuidv4();
@@ -1075,6 +1079,14 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       return newState;
     });
   },
+
+  setShowMinimap: (show) => {
+    set((state) => {
+      const newState = { showMinimap: show };
+      saveStateToStorage({ ...state, ...newState });
+      return newState;
+    });
+  },
 }));
 
 // Load initial state
@@ -1152,6 +1164,8 @@ if (typeof window !== 'undefined') {
             postItGroups: parsed.postItGroups || [],
             connections: parsed.connections || [],
             drawings: parsed.drawings || [],
+            geminiApiKey: parsed.geminiApiKey || null,
+            showMinimap: parsed.showMinimap !== undefined ? parsed.showMinimap : true,
             currentBoardId,
             isLoaded: true,
           });

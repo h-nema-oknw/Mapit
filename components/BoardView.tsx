@@ -8,7 +8,8 @@ import Konva from 'konva';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { File, Trash2, Edit2, Plus, X, Check } from 'lucide-react';
+import { File, Trash2, Edit2, Plus, X, Check, Map as MapIcon } from 'lucide-react';
+import Minimap from './Minimap';
 
 interface BoardViewProps {
   tool: 'board' | 'postit' | 'draw' | 'erase' | 'connect';
@@ -193,7 +194,8 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
     selectAllPostIts,
     copyPostIts,
     cutPostIts,
-    pastePostIts
+    pastePostIts,
+    showMinimap
   } = useBoardStore();
 
   const stageRef = useRef<Konva.Stage>(null);
@@ -552,6 +554,8 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
       clearTimeout(timer);
     };
   }, [currentBoardId]); // Re-run when board changes to ensure containerRef is captured
+
+  const [isMinimapVisible, setIsMinimapVisible] = useState(true);
 
   // Expose stage to window for export
   useEffect(() => {
@@ -1082,6 +1086,16 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
           x={position.x}
           y={position.y}
           draggable={tool === 'board' && !editingPostIt}
+          onDragMove={(e) => {
+            if (e.target === e.target.getStage()) {
+              setPosition({ x: e.target.x(), y: e.target.y() });
+            }
+          }}
+          onDragEnd={(e) => {
+            if (e.target === e.target.getStage()) {
+              setPosition({ x: e.target.x(), y: e.target.y() });
+            }
+          }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -2354,6 +2368,41 @@ export default function BoardView({ tool, setTool, drawingColor, drawingThicknes
           })()}
         </DialogContent>
       </Dialog>
+
+      {/* Minimap Toggle & Component */}
+      {showMinimap && (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2 pointer-events-none">
+          {isMinimapVisible && (
+            <Minimap 
+              postIts={currentPostIts}
+              connections={currentConnections}
+              drawings={currentDrawings}
+              viewport={{
+                x: position.x,
+                y: position.y,
+                width: stageSize.width,
+                height: stageSize.height,
+                scale: scale
+              }}
+              theme={theme}
+              onMove={(newX, newY) => setPosition({ x: newX, y: newY })}
+            />
+          )}
+          <Button
+            variant="outline"
+            size="icon"
+            className={`pointer-events-auto rounded-full shadow-lg border transition-all duration-300 ${
+              theme === 'dark' 
+                ? 'bg-[#1e1e20]/80 backdrop-blur-md border-[#ff00ff]/30 text-[#ff00ff] hover:bg-[#ff00ff]/10' 
+                : 'bg-white/80 backdrop-blur-md border-gray-200 text-[#3b82f6] hover:bg-gray-100'
+            }`}
+            onClick={() => setIsMinimapVisible(!isMinimapVisible)}
+            title={isMinimapVisible ? "ミニマップを隠す" : "ミニマップを表示"}
+          >
+            <MapIcon className="w-5 h-5" />
+          </Button>
+        </div>
+      )}
 
     </div>
   );
