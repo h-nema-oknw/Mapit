@@ -350,6 +350,23 @@ export default function Toolbar({
                   <li>「ボードを整理」ボタンで、散らばった付箋をAIが整理して繋ぎ合わせます。</li>
                 </ul>
               </div>
+              <div className={`pt-2 border-t ${theme === 'dark' ? 'border-[#ff00ff]/20' : 'border-gray-100'}`}>
+                <h4 className={`font-semibold mb-1 ${theme === 'dark' ? 'text-[#ff00ff]' : ''}`}>🔍 検索とナビゲーション</h4>
+                <ul className={`list-disc pl-5 space-y-1 ${theme === 'dark' ? 'text-[#00f3ff]/70' : 'text-gray-600'}`}>
+                  <li><strong>検索 (Ctrl+F):</strong> 付箋の内容、タグ、グループ名、連結線を検索できます。</li>
+                  <li><strong>ジャンプ:</strong> 検索結果を選択すると、その付箋へ自動で移動します。</li>
+                  <li><strong>ミニマップ:</strong> 全体を俯瞰し、クリックした場所へ移動できます。</li>
+                </ul>
+              </div>
+              <div className={`pt-2 border-t ${theme === 'dark' ? 'border-[#ff00ff]/20' : 'border-gray-100'}`}>
+                <h4 className={`font-semibold mb-1 ${theme === 'dark' ? 'text-[#ff00ff]' : ''}`}>⌨️ ショートカット</h4>
+                <ul className={`list-disc pl-5 space-y-1 ${theme === 'dark' ? 'text-[#00f3ff]/70' : 'text-gray-600'}`}>
+                  <li><strong>Ctrl + F:</strong> 検索バーを表示</li>
+                  <li><strong>Ctrl + Z / Y:</strong> 元に戻す / やり直し</li>
+                  <li><strong>Ctrl + C / V / X:</strong> コピー / 貼り付け / 切り取り</li>
+                  <li><strong>Delete / Backspace:</strong> 選択要素の削除</li>
+                </ul>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
